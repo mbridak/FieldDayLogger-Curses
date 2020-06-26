@@ -63,7 +63,7 @@ hiscall = ""
 hissection = ""
 hisclass = ""
 
-database = "WFD_Curses.db"
+database = "FieldDay.db"
 conn = ""
 wrkdsections = []
 scp = []

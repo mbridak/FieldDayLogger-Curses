@@ -1,19 +1,11 @@
-## K6GTE Winter Field Day logger
+## K6GTE Field Day logger
 
 The logger is written in Python 3, and uses the curses lib. It will work with Linux and Mac, but since the Windows curses lib is lacking it will not work properly in Windows.
 
-The log is stored in an sqlite3 database file 'WFD_Curses.db'. If you need to wipe everything and start clean, just delete this file. The screen size expected by the program is an 80 x 24 character terminal. Nothing needs to be installed, compiled etc... Just make WFD_Curses.py executable and run it within the same folder.
+The log is stored in an sqlite3 database file 'FieldDay.db'. If you need to wipe everything and start clean, just delete this file. The screen size expected by the program is an 80 x 24 character terminal. Nothing needs to be installed, compiled etc... Just make FieldDayLogger.py executable and run it within the same folder.
 
-I decided to write this after the 2018 Winter Field Day when I couldn't find a simple Linux logger for the event. I didn't need multiuser logging or GPS disciplined time servers. Just a simple logger with dup checking that could generate a cabrillo log for submission.
+![Alt text](https://github.com/mbridak/FieldDayLogger/raw/master/logger.png)
 
-![Alt text](https://github.com/mbridak/wfd_py_logger/raw/master/logger.png)
-
-## What was learned from WFD 2020
-~~I might want to include some integration with CAT via hamlib or flrig. As I found needing to remember to switch modes/bands during the event a little annoying. I haven't looked but am sure there must be a python lib for this.~~ Done.
-
-The WFD group who processes the logs needs lines ending in CR/LF. I've updated the cabrillo generator for next year.
-
-I think the text input/editing could use some work. Would like to be able to arrow back and change something in the middle of the call as opposed to backspacing to the error and retyping the info.
 
 ## Caveats
 This is a simple logger ment for single op, it's not usable for clubs.
@@ -33,10 +25,6 @@ Commands start with a period character in the callsign field and are immediately
 .D# Deletes log entry. .D26 will delete the log line starting with 026.
 .E# Edits log entry. .E26 will edit the log line starting with 026.
 .L Generate Cabrillo log file for submission.
-.1 Claim Alt-Power Bonus
-.2 Claim Outdoors Bonus
-.3 Claim Away from Home Bonus
-.4 Claim Satellite Bonus
 [esc] abort input, clear all fields.
 ```
 
@@ -49,18 +37,12 @@ So when I initially start the program I would enter the following:
 
 ```
 .KK6GTE
-.C1O
+.C1B
 .SORG
 .P5
 .B40
 .MCW
 ``` 
-For claimed bonuses, since I'll be using battery and solar and I'll be outdoors and away from home, but I don't plan on making any Satellite contacts I'd also enter the following.
-```
-.1
-.2
-.3
-```
 
 ## Features
 

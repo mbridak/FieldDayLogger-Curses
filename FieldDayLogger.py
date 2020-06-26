@@ -394,22 +394,6 @@ def cabrillo():
 	print("CLUB:",end='\r\n', file=open(logname, "a"))
 	print("CATEGORY-OPERATOR: SINGLE-OP\r\nCATEGORY-ASSISTED: NON-ASSISTED\r\nCATEGORY-BAND: ALL\r\nCATEGORY-MODE: MIXED\r\nCATEGORY-STATION: PORTABLE\r\nCATEGORY-TRANSMITTER: ONE", end='\r\n', file=open(logname, "a"))
 	print("CATEGORY-POWER: " + catpower, end='\r\n', file=open(logname, "a"))
-	"""
-	if altpower:
-		print("SOAPBOX: 1,500 points for not using commercial power", end='\r\n', file=open("WFDLOG.txt", "a"))
-		bonuses = bonuses + 1500
-	if outdoors:
-		print("SOAPBOX: 1,500 points for setting up outdoors", end='\r\n', file=open("WFDLOG.txt", "a"))
-		bonuses = bonuses + 1500
-	if notathome:
-		print("SOAPBOX: 1,500 points for setting up away from home", end='\r\n', file=open("WFDLOG.txt", "a"))
-		bonuses = bonuses + 1500
-	if satellite:
-		print("SOAPBOX: 1,500 points for working satellite", end='\r\n', file=open("WFDLOG.txt", "a"))
-		bonuses = bonuses + 1500
-	print("SOAPBOX: BONUS Total " + str(bonuses), end='\r\n', file=open("WFDLOG.txt", "a"))
-	"""
-
 	print("CLAIMED-SCORE: " + str(score()), end='\r\n', file=open(logname, "a"))
 	print("OPERATORS:", mycall, end='\r\n', file=open(logname, "a"))
 	print("NAME: ", end='\r\n', file=open(logname, "a"))
@@ -426,7 +410,6 @@ def cabrillo():
 		if mode == "DI": mode = "DG"
 		loggeddate = datetime[:10]
 		loggedtime = datetime[11:13] + datetime[14:16]
-		# print(value1, ..., sep=' ', end='\r\n', file=sys.stdout, flush=False)
 		print("QSO:", band.rjust(3) + "M", mode, loggeddate, loggedtime, mycall.ljust(14), myclass.ljust(3), mysection.ljust(5), hiscall.ljust(14), hisclass.ljust(3),
 			  hissection, sep=' ', end='\r\n', file=open(logname, "a"))
 	print("END-OF-LOG:", end='\r\n', file=open(logname, "a"))
@@ -712,14 +695,6 @@ def statusline():
 	stdscr.addstr(23, 20, "  " + mode + "  ", curses.A_REVERSE)
 	stdscr.addstr(23, 27, "                            ")
 	stdscr.addstr(23, 27, " " + mycall + "|" + myclass + "|" + mysection + "|" + power + "w ", curses.A_REVERSE)
-	#stdscr.addstr(22, 1, "Bonuses:")
-	#stdscr.addstr(22, 10, "Alt Power", highlightBonus(altpower))
-	#stdscr.addch(curses.ACS_VLINE)
-	#stdscr.addstr("Outdoors", highlightBonus(outdoors))
-	#stdscr.addch(curses.ACS_VLINE)
-	#stdscr.addstr("Not At Home", highlightBonus(notathome))
-	#stdscr.addch(curses.ACS_VLINE)
-	#stdscr.addstr("Satellite", highlightBonus(satellite))
 	stdscr.addstr(23,50,"Rig", highlightBonus(rigonline))
 
 	stdscr.move(y, x)
@@ -757,74 +732,6 @@ def setsection(s):
 	mysection = str(s)
 	writepreferences()
 	statusline()
-
-def claimAltPower():
-	global altpower
-	if altpower:
-		altpower = False
-	else:
-		altpower = True
-	oy, ox = stdscr.getyx()
-	window = curses.newpad(10, 33)
-	rectangle(stdscr, 11, 0, 21, 34)
-	window.addstr(0, 0, "Alt Power set to: " + str(altpower))
-	stdscr.refresh()
-	window.refresh(0, 0, 12, 1, 20, 33)
-	stdscr.move(oy, ox)
-	writepreferences()
-	statusline()
-	stats()
-
-def claimOutdoors():
-	global outdoors
-	if outdoors:
-		outdoors = False
-	else:
-		outdoors = True
-	oy, ox = stdscr.getyx()
-	window = curses.newpad(10, 33)
-	rectangle(stdscr, 11, 0, 21, 34)
-	window.addstr(0, 0, "Outdoor bonus set to: " + str(outdoors))
-	stdscr.refresh()
-	window.refresh(0, 0, 12, 1, 20, 33)
-	stdscr.move(oy, ox)
-	writepreferences()
-	statusline()
-	stats()
-
-def claimNotHome():
-	global notathome
-	if notathome:
-		notathome = False
-	else:
-		notathome = True
-	oy, ox = stdscr.getyx()
-	window = curses.newpad(10, 33)
-	rectangle(stdscr, 11, 0, 21, 34)
-	window.addstr(0, 0, "Away bonus set to: " + str(notathome))
-	stdscr.refresh()
-	window.refresh(0, 0, 12, 1, 20, 33)
-	stdscr.move(oy, ox)
-	writepreferences()
-	statusline()
-	stats()
-
-def claimSatellite():
-	global satellite
-	if satellite:
-		satellite = False
-	else:
-		satellite = True
-	oy, ox = stdscr.getyx()
-	window = curses.newpad(10, 33)
-	rectangle(stdscr, 11, 0, 21, 34)
-	window.addstr(0, 0, "Satellite bonus set to: " + str(satellite))
-	stdscr.refresh()
-	window.refresh(0, 0, 12, 1, 20, 33)
-	stdscr.move(oy, ox)
-	writepreferences()
-	statusline()
-	stats()
 
 def displayHelp():
 	rectangle(stdscr, 11, 0, 21, 34)
@@ -920,18 +827,6 @@ def processcommand(cmd):
 		return
 	if cmd[:1] == "L":  # Generate Cabrillo Log
 		cabrillo()
-		return
-	if cmd[:1] == "1":  # Claim Alt Power Bonus
-		claimAltPower()
-		return
-	if cmd[:1] == "2":  # Claim Outdoor Bonus
-		claimOutdoors()
-		return
-	if cmd[:1] == "3":  # Claim Not Home Bonus
-		claimNotHome()
-		return
-	if cmd[:1] == "4":  # Claim Satellite Bonus
-		claimSatellite()
 		return
 	curses.flash()
 	curses.beep()

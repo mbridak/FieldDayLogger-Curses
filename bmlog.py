@@ -7,7 +7,7 @@ fdbands = ('160', '80', '40', '20', '15', '10', '6', '2', '222', '432', 'SAT')
 
 
 def getBandModeTally(band, mode):
-	database = "WFD_Curses.db"
+	database = "FieldDay.db"
 	conn = ""
 	conn = sqlite3.connect(database)
 	c = conn.cursor()
@@ -16,7 +16,7 @@ def getBandModeTally(band, mode):
 
 def getbands():
 	bandlist=[]
-	database = "WFD_Curses.db"
+	database = "FieldDay.db"
 	conn = ""
 	conn = sqlite3.connect(database)
 	c = conn.cursor()

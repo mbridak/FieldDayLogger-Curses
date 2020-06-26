@@ -17,7 +17,7 @@ Commands start with a period character in the callsign field and are immediately
 .H displays a short list of commands.
 .Q Quit the program.
 .Kyourcall Sets your callsign. .KK6GTE will set it to K6GTE.
-.Cyourclass Sets your class. .C1O wil set your class to 1O.
+.Cyourclass Sets your class. .C1E wil set your class to 1E.
 .Syoursection Sets your section. .SORG sets your section to ORG.
 .P# Sets the power level, .P5 will set the power to 5 watts.
 .MCW .MPH .MDI Sets the mode. CW Morse, PH Phone, DI Digital.
@@ -43,6 +43,7 @@ So when I initially start the program I would enter the following:
 .B40
 .MCW
 ``` 
+This says I'm K6GTE 1B ORG, running 5 watts CW on 40 Meters.
 
 ## Features
 

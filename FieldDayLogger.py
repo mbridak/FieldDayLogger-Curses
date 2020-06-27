@@ -872,7 +872,7 @@ def processcommand(cmd):
 
 def proc_key(key):
 	global inputFieldFocus, hiscall, hissection, hisclass, kbuf
-	if key == 9:
+	if key == 9 or key == Space:
 		inputFieldFocus += 1
 		if inputFieldFocus > 2:
 			inputFieldFocus = 0

@@ -68,6 +68,13 @@ Once you type a complete callsign and press TAB to advance to the next field. Th
 #### Autofill
 If you have worked this person before on another band/mode the program will load the class and section used previously for this call so you will not have to enter this info again.
 
+#### The Log
+If you've gotten this far I commend you. Let's hope this part actually works, 'cause if you spent 24 hours yelling into a mic, tapity tap taping a Morse key and clickity click clicking on an FT8 screen and all you get is 'sad trombone'... Well...
+
+The command '.L' will as far as I can tell generate a cabrillo log file which you should edit to add your name, email address, home address and possible club affiliation. It will also generate a statistics file with a band/mode breakdown, which is something you'll have to hand enter on the ARRL submission page.
+
+I've used cr/lf line endings because that's what the log checker expects. So if you edit the file you might want to run the file through 'unix2dos' to make sure the checker does not choke.  
+
 ## TODO
   * Enter a contact at a specific time.
 

@@ -31,7 +31,7 @@ QuestionMark = 63
 EnterKey = 10
 Space = 32
 
-bands = ('160', '80', '60','40', '20', '15', '10', '6', '2')
+bands = ('160', '80', '40', '20', '15', '10', '6', '2', '222', '432', 'SAT')
 modes = ('PH', 'CW', 'DI')
 
 mycall = "YOURCALL"
@@ -372,6 +372,42 @@ def qrpcheck():
 	conn.close()
 	qrp = not (qrpc + qrpp + qrpd)
 
+def getBandModeTally(band, mode):
+	database = "FieldDay.db"
+	conn = ""
+	conn = sqlite3.connect(database)
+	c = conn.cursor()
+	c.execute("select count(*) as tally, MAX(power) as mpow from contacts where band = '"+band+"' AND mode ='"+mode+"'")
+	return c.fetchone()
+
+def getbands():
+	bandlist=[]
+	database = "FieldDay.db"
+	conn = ""
+	conn = sqlite3.connect(database)
+	c = conn.cursor()
+	c.execute("select DISTINCT band from contacts")
+	x=c.fetchall()
+	if x:
+		for count in x:
+			bandlist.append(count[0])
+		return bandlist
+	return []
+
+def generateBandModeTally():
+	blist = getbands()
+	bmtfn = "Statistics.txt"
+	print("\t\tCW\tPWR\tDI\tPWR\tPH\tPWR", end='\r\n', file=open(bmtfn, "w"))
+	print("-"*60, end='\r\n', file=open(bmtfn, "a"))
+	for b in bands:
+		if b in blist:
+			cwt = getBandModeTally(b,"CW")
+			dit = getBandModeTally(b,"DI")
+			pht = getBandModeTally(b,"PH")
+			print("Band:\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (b, cwt[0], cwt[1], dit[0], dit[1], pht[0], pht[1]), end='\r\n', file=open(bmtfn, "a"))
+			print("-"*60, end='\r\n', file=open(bmtfn, "a"))
+
+
 def cabrillo():
 	logname = "FieldDay.log"
 	bonuses = 0
@@ -414,10 +450,13 @@ def cabrillo():
 			  hissection, sep=' ', end='\r\n', file=open(logname, "a"))
 	print("END-OF-LOG:", end='\r\n', file=open(logname, "a"))
 
+	generateBandModeTally()
+
 	oy, ox = stdscr.getyx()
 	window = curses.newpad(10, 33)
 	rectangle(stdscr, 11, 0, 21, 34)
 	window.addstr(0, 0, "Log written to: " + logname)
+	window.addstr(1, 0, "Stats written to: Statistics.txt")
 	stdscr.refresh()
 	window.refresh(0, 0, 12, 1, 20, 33)
 	stdscr.move(oy, ox)

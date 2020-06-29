@@ -10,6 +10,12 @@ The log is stored in an sqlite3 database file 'FieldDay.db'. If you need to wipe
 ## Caveats
 This is a simple logger ment for single op, it's not usable for clubs.
 
+## What was learned from Field Day 2020.
+
+It worked fairly well. I figured out pretty quickly that I should have made the space bar advance to the next field like the TAB key does. I made that change then pushed the changes to github during Field Day.
+
+Everything else worked just about as expected.
+
 ## Commands:
 Commands start with a period character in the callsign field and are immediately followed by any information needed by the command.
 
@@ -73,7 +79,9 @@ If you've gotten this far I commend you. Let's hope this part actually works, 'c
 
 The command '.L' will as far as I can tell generate a cabrillo log file which you should edit to add your name, email address, home address and possible club affiliation. It will also generate a statistics file with a band/mode breakdown, which is something you'll have to hand enter on the ARRL submission page.
 
-I've used cr/lf line endings because that's what the log checker expects. So if you edit the file you might want to run the file through 'unix2dos' to make sure the checker does not choke.  
+I've used cr/lf line endings because that's what the log checker expects. So if you edit the file you might want to run the file through 'unix2dos' to make sure the checker does not choke. 
+
+I've added an adif export of sorts. There's a logistical problem with data modes. Field Day does not care what the data mode is, it's just recorded as a generic data contact. So I didn't bother to capture that in the database. So since most of america and maybe canada will use FT8 because it's the new hotness, I just made the data contacts map over to FT8 in ADIF. Sorry. 
 
 ## TODO
   * Enter a contact at a specific time.

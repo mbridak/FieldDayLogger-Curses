@@ -323,12 +323,12 @@ def stats():
 	stdscr.addstr(4, 58, "QSO POINTS:          ")
 	stdscr.addstr(5, 58, "QSOs LAST HOUR:")
 	stdscr.addstr(6, 58, "QSOs LAST 15MIN:")
-	stdscr.addstr(1, 79 - len(cwcontacts), cwcontacts)
-	stdscr.addstr(2, 79 - len(phonecontacts), phonecontacts)
-	stdscr.addstr(3, 79 - len(digitalcontacts), digitalcontacts)
-	stdscr.addstr(4, 79 - len(str(score())), str(score()))
-	stdscr.addstr(5, 79 - len(lasthour), lasthour)
-	stdscr.addstr(6, 79 - len(last15), last15)
+	stdscr.addstr(1, 75, cwcontacts.rjust(4))
+	stdscr.addstr(2, 75, phonecontacts.rjust(4))
+	stdscr.addstr(3, 75, digitalcontacts.rjust(4))
+	stdscr.addstr(4, 70, str(score()).rjust(9))
+	stdscr.addstr(5, 76, lasthour.rjust(3))
+	stdscr.addstr(6, 76, last15.rjust(3))
 	stdscr.move(y, x)
 
 def score():

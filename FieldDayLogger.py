@@ -32,6 +32,7 @@ EnterKey = 10
 Space = 32
 
 bands = ('160', '80', '40', '20', '15', '10', '6', '2', '222', '432', 'SAT')
+dfreq = {'160':"1.8", '80':"3.5", '40':"7.0", '20':"14.0", '15':"21.0", '10':"28.0", '6':"50.0", '2':"144", '222':"222.0", '432':"432.0", 'SAT':"0.0"}
 modes = ('PH', 'CW', 'DI')
 
 mycall = "YOURCALL"
@@ -407,6 +408,48 @@ def generateBandModeTally():
 			print("Band:\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (b, cwt[0], cwt[1], dit[0], dit[1], pht[0], pht[1]), end='\r\n', file=open(bmtfn, "a"))
 			print("-"*60, end='\r\n', file=open(bmtfn, "a"))
 
+def adif():
+	"""
+	<FREQ:5>14.08
+	STATION_CALLSIGN
+	STX_STRING
+	"""
+	logname = "FieldDay.adi"
+	conn = sqlite3.connect(database)
+	c = conn.cursor()
+	c.execute("select * from contacts order by date_time ASC")
+	log = c.fetchall()
+	conn.close()
+	counter = 0
+	print("<ADIF_VER:5>2.2.0", end='\r\n', file=open(logname, "w"))
+	print("<EOH>", end='\r\n', file=open(logname, "a"))
+	for x in log:
+		logid, hiscall, hisclass, hissection, datetime, band, mode, power = x
+		if mode == "DI": mode = "FT8"
+		if mode == "PH": mode = "SSB"
+		if mode == "CW":
+			rst = "599"
+		else:
+			rst = "59"
+		loggeddate = datetime[:10]
+		loggedtime = datetime[11:13] + datetime[14:16]
+		print("<QSO_DATE:%s:d>%s" % (len("".join(loggeddate.split("-"))), "".join(loggeddate.split("-"))), end='\r\n', file=open(logname, "a"))
+		print("<TIME_ON:%s>%s" % (len(loggedtime), loggedtime), end='\r\n', file=open(logname, "a"))
+		print("<CALL:%s>%s" % (len(hiscall), hiscall), end='\r\n', file=open(logname, "a"))
+		print("<MODE:%s>%s" % (len(mode), mode), end='\r\n', file=open(logname, "a"))
+		print("<BAND:%s>%s" % (len(band + "M"), band + "M"), end='\r\n', file=open(logname, "a"))
+		print("<FREQ:%s>%s" % (len(dfreq[band]), dfreq[band]), end='\r\n', file=open(logname, "a"))
+		print("<RST_SENT:%s>%s" % (len(rst), rst), end='\r\n', file=open(logname, "a"))
+		print("<RST_RCVD:%s>%s" % (len(rst), rst), end='\r\n', file=open(logname, "a"))
+		print("<STX_STRING:%s>%s" % (len(myclass + " " + mysection), myclass + " " + mysection), end='\r\n', file=open(logname, "a"))
+		print("<ARRL_SECT:%s>%s" % (len(hissection), hissection), end='\r\n', file=open(logname, "a"))
+		print("<CLASS:%s>%s" % (len(hisclass), hisclass), end='\r\n', file=open(logname, "a"))
+		#print("QSO:", band.rjust(3) + "M", mode, loggeddate, loggedtime, mycall.ljust(14), myclass.ljust(3), mysection.ljust(5), hiscall.ljust(14), hisclass.ljust(3),
+		#	  hissection, sep=' ', end='\r\n', file=open(logname, "a"))
+		print("<COMMENT:19>2020 ARRL-FIELD-DAY", end='\r\n', file=open(logname, "a"))
+		print("<EOR>", end='\r\n', file=open(logname, "a"))
+		print("", end='\r\n', file=open(logname, "a"))
+
 
 def cabrillo():
 	logname = "FieldDay.log"
@@ -451,12 +494,14 @@ def cabrillo():
 	print("END-OF-LOG:", end='\r\n', file=open(logname, "a"))
 
 	generateBandModeTally()
+	adif()
 
 	oy, ox = stdscr.getyx()
 	window = curses.newpad(10, 33)
 	rectangle(stdscr, 11, 0, 21, 34)
 	window.addstr(0, 0, "Log written to: " + logname)
 	window.addstr(1, 0, "Stats written to: Statistics.txt")
+	window.addstr(2, 0, "ADIF written to: FieldDay.adi")
 	stdscr.refresh()
 	window.refresh(0, 0, 12, 1, 20, 33)
 	stdscr.move(oy, ox)

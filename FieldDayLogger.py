@@ -350,8 +350,6 @@ def score():
 		score = score * 5
 	elif not (highpower):
 		score = score * 2
-	#score = score * bandmodemult
-	#score = score + (1500 * altpower) + (1500 * outdoors) + (1500 * notathome) + (1500 * satellite)
 	return score
 
 def qrpcheck():
@@ -409,11 +407,6 @@ def generateBandModeTally():
 			print("-"*60, end='\r\n', file=open(bmtfn, "a"))
 
 def adif():
-	"""
-	<FREQ:5>14.08
-	STATION_CALLSIGN
-	STX_STRING
-	"""
 	logname = "FieldDay.adi"
 	conn = sqlite3.connect(database)
 	c = conn.cursor()
@@ -581,7 +574,7 @@ def dupCheck(acall):
 		decorate = ""
 		hiscall, hisclass, hissection, hisband, hismode = x
 		if hisband == band and hismode == mode:
-			decorate = curses.A_BOLD
+			decorate = curses.color_pair(1)
 			curses.flash()
 			curses.beep()
 		else:

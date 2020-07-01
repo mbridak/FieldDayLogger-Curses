@@ -70,6 +70,7 @@ wrkdsections = []
 scp = []
 secPartial = {}
 secName = {}
+secState = {}
 oldfreq = "0"
 oldmode = ""
 #rigctrlhost = "192.168.1.152" #IP address for rigctld
@@ -251,6 +252,7 @@ def readSections():
 			try:
 				sec, st, canum, abbrev, name = str.split(ln, None, 4)
 				secName[abbrev] = abbrev + ' ' + name + ' ' + canum
+				secState[abbrev] = st
 				for i in range(len(abbrev) - 1):
 					p = abbrev[:-i - 1]
 					secPartial[p] = 1
@@ -406,6 +408,15 @@ def generateBandModeTally():
 			print("Band:\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (b, cwt[0], cwt[1], dit[0], dit[1], pht[0], pht[1]), end='\r\n', file=open(bmtfn, "a"))
 			print("-"*60, end='\r\n', file=open(bmtfn, "a"))
 
+def getState(section):
+	try:
+		state = secState[section]
+		if state != "--":
+			return state
+	except:
+		return False
+	return False
+
 def adif():
 	logname = "FieldDay.adi"
 	conn = sqlite3.connect(database)
@@ -438,6 +449,8 @@ def adif():
 		print("<SRX_STRING:%s>%s" % (len(hisclass + " " + hissection), hisclass + " " + hissection), end='\r\n', file=open(logname, "a"))
 		print("<ARRL_SECT:%s>%s" % (len(hissection), hissection), end='\r\n', file=open(logname, "a"))
 		print("<CLASS:%s>%s" % (len(hisclass), hisclass), end='\r\n', file=open(logname, "a"))
+		state = getState(hissection)
+		if state: print("<STATE:%s>%s" % (len(state), state), end='\r\n', file=open(logname, "a"))
 		print("<COMMENT:19>2020 ARRL-FIELD-DAY", end='\r\n', file=open(logname, "a"))
 		print("<EOR>", end='\r\n', file=open(logname, "a"))
 		print("", end='\r\n', file=open(logname, "a"))

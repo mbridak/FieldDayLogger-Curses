@@ -435,10 +435,9 @@ def adif():
 		print("<RST_SENT:%s>%s" % (len(rst), rst), end='\r\n', file=open(logname, "a"))
 		print("<RST_RCVD:%s>%s" % (len(rst), rst), end='\r\n', file=open(logname, "a"))
 		print("<STX_STRING:%s>%s" % (len(myclass + " " + mysection), myclass + " " + mysection), end='\r\n', file=open(logname, "a"))
+		print("<SRX_STRING:%s>%s" % (len(hisclass + " " + hissection), hisclass + " " + hissection), end='\r\n', file=open(logname, "a"))
 		print("<ARRL_SECT:%s>%s" % (len(hissection), hissection), end='\r\n', file=open(logname, "a"))
 		print("<CLASS:%s>%s" % (len(hisclass), hisclass), end='\r\n', file=open(logname, "a"))
-		#print("QSO:", band.rjust(3) + "M", mode, loggeddate, loggedtime, mycall.ljust(14), myclass.ljust(3), mysection.ljust(5), hiscall.ljust(14), hisclass.ljust(3),
-		#	  hissection, sep=' ', end='\r\n', file=open(logname, "a"))
 		print("<COMMENT:19>2020 ARRL-FIELD-DAY", end='\r\n', file=open(logname, "a"))
 		print("<EOR>", end='\r\n', file=open(logname, "a"))
 		print("", end='\r\n', file=open(logname, "a"))

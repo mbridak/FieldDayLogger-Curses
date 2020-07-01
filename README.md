@@ -23,14 +23,14 @@ Commands start with a period character in the callsign field and are immediately
 .H displays a short list of commands.
 .Q Quit the program.
 .Kyourcall Sets your callsign. .KK6GTE will set it to K6GTE.
-.Cyourclass Sets your class. .C1E wil set your class to 1E.
+.Cyourclass Sets your class. .C1E will set your class to 1E.
 .Syoursection Sets your section. .SORG sets your section to ORG.
 .P# Sets the power level, .P5 will set the power to 5 watts.
 .MCW .MPH .MDI Sets the mode. CW Morse, PH Phone, DI Digital.
 .B# sets the band, .B40 for 40 meters.
 .D# Deletes log entry. .D26 will delete the log line starting with 026.
 .E# Edits log entry. .E26 will edit the log line starting with 026.
-.L Generate Cabrillo log file for submission.
+.L Generate Cabrillo, ADIF and stats.
 [esc] abort input, clear all fields.
 ```
 
@@ -75,7 +75,7 @@ As you type the section abbreviation you are presented with a list of all possib
 ![Alt text](https://github.com/mbridak/FieldDayLogger/raw/master/pics/sectioncheckpartial.png)
 
 #### DUP checking
-Once you type a complete callsign and press TAB to advance to the next field. The callsign is checked against previous callsigns in your log. It will list any prior contact made with the band and mode of the contact. If the band and mode are the same as the one you are currently using, the listing will be highlighted to alert you that this is a DUP.
+Once you type a complete callsign and press TAB to advance to the next field. The callsign is checked against previous callsigns in your log. It will list any prior contact made with the band and mode of the contact. If the band and mode are the same as the one you are currently using, the listing will be highlighted, the screen will flash, and a bell will sound to alert you that this is a DUP.
 
 ![Alt text](https://github.com/mbridak/FieldDayLogger/raw/master/pics/dupe_check.png)
 

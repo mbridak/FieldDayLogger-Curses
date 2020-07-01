@@ -4,7 +4,7 @@ The logger is written in Python 3, and uses the curses lib. It will work with Li
 
 The log is stored in an sqlite3 database file 'FieldDay.db'. If you need to wipe everything and start clean, just delete this file. The screen size expected by the program is an 80 x 24 character terminal. Nothing needs to be installed, compiled etc... Just make FieldDayLogger.py executable and run it within the same folder.
 
-![Alt text](https://github.com/mbridak/FieldDayLogger/raw/master/logger.png)
+![Alt text](https://github.com/mbridak/FieldDayLogger/raw/master/pics/logger.png)
 
 
 ## Caveats
@@ -56,20 +56,29 @@ This says I'm K6GTE 1B ORG, running 5 watts CW on 40 Meters.
 #### Radio Polling via rigctld
 If you run rigctld on the computer that you are logging from, the radio will be polled for band/mode updates automatically. There is an indicator at the bottom of the logging window to indicate polling status. Dim if no connection or timeout, and highlighted if all okay.
 
-![Alt text](https://github.com/mbridak/wfd_py_logger/raw/master/rigctld.png)
+![Alt text](https://github.com/mbridak/FieldDayLogger/raw/master/pics/rigctld.png)
 
 #### Editing an existing contact
 Use the Up/Down arrow keys or PageUp/PageDown to scroll the contact into view. Your mouse scroll wheel may work as well. Double left click on the contact to edit, or use the '.E' command. Use the TAB or Up/Down arrow keys to move between fields. Backspace to erase and retype what you need.
 Once done press the Enter key to save, or the Escape key to exit.
 
+![Alt text](https://github.com/mbridak/FieldDayLogger/raw/master/pics/editcontact.png)
+
 #### Super Check Partial
 If you type more than two characters in the callsign field the program will filter the input through a "Super Check Partial" routine and show you possible matches to known contesting call signs. Is this useful? Doubt it.
+
+![Alt text](https://github.com/mbridak/FieldDayLogger/raw/master/pics/scp.png)
 
 #### Section partial check
 As you type the section abbreviation you are presented with a list of all possible sections that start with what you have typed.
 
+![Alt text](https://github.com/mbridak/FieldDayLogger/raw/master/pics/sectioncheckpartial.png)
+
 #### DUP checking
 Once you type a complete callsign and press TAB to advance to the next field. The callsign is checked against previous callsigns in your log. It will list any prior contact made with the band and mode of the contact. If the band and mode are the same as the one you are currently using, the listing will be highlighted to alert you that this is a DUP.
+
+![Alt text](https://github.com/mbridak/FieldDayLogger/raw/master/pics/dupe_check.png)
+
 
 #### Autofill
 If you have worked this person before on another band/mode the program will load the class and section used previously for this call so you will not have to enter this info again.

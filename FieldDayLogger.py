@@ -467,12 +467,21 @@ def adif():
 		stdscr.move(yy, xx)
 		stdscr.refresh()
 		grid = False
+		name = False
 		try:
 			if qrzsession:
 				payload = {'s':qrzsession, 'callsign':hiscall}
 				r=requests.get(qrzurl,params=payload, timeout=3.0)
-				if r.status_code == 200 and r.text.find('<grid>') > 0:
-					grid = r.text[r.text.find('<grid>')+6:r.text.find('</grid>')]
+				if r.status_code == 200:
+					if r.text.find('<grid>') > 0:
+						grid = r.text[r.text.find('<grid>')+6:r.text.find('</grid>')]
+					if r.text.find('<fname>') > 0:
+						name = r.text[r.text.find('<fname>')+7:r.text.find('</fname>')]
+					if r.text.find('<name>') > 0:
+						if not name:
+							name = r.text[r.text.find('<name>')+6:r.text.find('</name>')]
+						else:
+							name += " " + r.text[r.text.find('<name>')+6:r.text.find('</name>')]
 		except:
 			pass
 		print("<QSO_DATE:%s:d>%s" % (len("".join(loggeddate.split("-"))), "".join(loggeddate.split("-"))), end='\r\n', file=open(logname, "a"))
@@ -490,6 +499,7 @@ def adif():
 		state = getState(hissection)
 		if state: print("<STATE:%s>%s" % (len(state), state), end='\r\n', file=open(logname, "a"))
 		if grid: print("<GRIDSQUARE:%s>%s" % (len(grid), grid), end='\r\n', file=open(logname, "a"))
+		if name: print("<NAME:%s>%s" % (len(name), name), end='\r\n', file=open(logname, "a"))
 		print("<COMMENT:14>ARRL-FIELD-DAY", end='\r\n', file=open(logname, "a"))
 		print("<EOR>", end='\r\n', file=open(logname, "a"))
 		print("", end='\r\n', file=open(logname, "a"))

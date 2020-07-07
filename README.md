@@ -61,6 +61,15 @@ If you run rigctld on the computer that you are logging from, the radio will be 
 
 ![Alt text](https://github.com/mbridak/FieldDayLogger/raw/master/pics/rigctld.png)
 
+#### Cloudlog and QRZ API's
+If you use either Cloudlog logging or QRZ lookup you can edit the lines in FieldDayLogger.py shown below to enable.
+```
+    cloudlogapi="cl12345678901234567890"
+	cloudlogurl="http://www.yoururl.com/Cloudlog/index.php/api/qso"
+	qrzname="w1aw"
+	qrzpass="secret"
+```
+
 #### Editing an existing contact
 Use the Up/Down arrow keys or PageUp/PageDown to scroll the contact into view. Your mouse scroll wheel may work as well. Double left click on the contact to edit, or use the '.E' command. Use the TAB or Up/Down arrow keys to move between fields. Backspace to erase and retype what you need.
 Once done press the Enter key to save, or the Escape key to exit.

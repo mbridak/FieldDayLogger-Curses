@@ -16,8 +16,8 @@ try:
 	cloudlogapi="cl12345678901234567890"
 	cloudlogurl="http://www.yoururl.com/Cloudlog/index.php/api/qso"
 	qrzurl="http://xmldata.qrz.com/xml/"
-	qrzname="w1aw"
-	qrzpass="secret"
+	qrzname="k6gte"
+	qrzpass="bu77cr4mp"
 	payload = {'username':qrzname, 'password':qrzpass}
 	r=requests.get(qrzurl,params=payload, timeout=1.0)
 	if r.status_code == 200 and r.text.find('<Key>') > 0:
@@ -52,7 +52,7 @@ EnterKey = 10
 Space = 32
 
 bands = ('160', '80', '40', '20', '15', '10', '6', '2', '222', '432', 'SAT')
-dfreq = {'160':"1.8", '80':"3.5", '40':"7.0", '20':"14.0", '15':"21.0", '10':"28.0", '6':"50.0", '2':"144", '222':"222.0", '432':"432.0", 'SAT':"0.0"}
+dfreq = {'160':"1.800", '80':"3.500", '40':"7.000", '20':"14.000", '15':"21.000", '10':"28.000", '6':"50.000", '2':"144.000", '222':"222.000", '432':"432.000", 'SAT':"0.0"}
 modes = ('PH', 'CW', 'DI')
 
 mycall = "YOURCALL"
@@ -505,7 +505,7 @@ def adif():
 		print("", end='\r\n', file=open(logname, "a"))
 	yy, xx = stdscr.getyx()
 	stdscr.move(15, 1)
-	stdscr.addstr("Done.                    ")
+	stdscr.addstr("Done.                     ")
 	stdscr.move(yy, xx)
 	stdscr.refresh()
 

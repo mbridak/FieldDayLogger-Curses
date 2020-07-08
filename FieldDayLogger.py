@@ -16,8 +16,8 @@ try:
 	cloudlogapi="cl12345678901234567890"
 	cloudlogurl="http://www.yoururl.com/Cloudlog/index.php/api/qso"
 	qrzurl="http://xmldata.qrz.com/xml/"
-	qrzname="k6gte"
-	qrzpass="bu77cr4mp"
+	qrzname="w1aw"
+	qrzpass="secret"
 	payload = {'username':qrzname, 'password':qrzpass}
 	r=requests.get(qrzurl,params=payload, timeout=1.0)
 	if r.status_code == 200 and r.text.find('<Key>') > 0:

@@ -760,7 +760,7 @@ def sectionsCol2():
 	stdscr.addstr(13, 45, "GA", workedSection("GA"))
 	stdscr.addstr(13, 49, "SFL", workedSection("SFL"))
 	stdscr.addstr(14, 45, "KY", workedSection("KY"))
-	stdscr.addstr(14, 50, "TY", workedSection("TY"))
+	stdscr.addstr(14, 50, "TN", workedSection("TN"))
 	stdscr.addstr(15, 45, "NC", workedSection("NC"))
 	stdscr.addstr(15, 50, "VA", workedSection("VA"))
 	stdscr.addstr(16, 45, "NFL", workedSection("NFL"))

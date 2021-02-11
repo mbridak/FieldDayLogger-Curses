@@ -199,20 +199,17 @@ def readpreferences():
 				notathome = bool(notathome)
 				satellite = bool(satellite)
 		else:
-			sql = "INSERT INTO preferences(id, mycallsign, myclass, mysection, power, altpower, outdoors, notathome, satellite) VALUES(1,'" + mycall + "','" + myclass + "','" + mysection + "','" + power + "'," + str(
-				int(altpower)) + "," + str(int(outdoors)) + "," + str(int(notathome)) + "," + str(int(satellite)) + ")"
+			sql = f"INSERT INTO preferences(id, mycallsign, myclass, mysection, power, altpower, outdoors, notathome, satellite) VALUES(1,'{mycall}','{myclass}','{mysection}','{power}',{int(altpower)},{int(outdoors)},{int(notathome)},{int(satellite)})"
 			c.execute(sql)
 			conn.commit()
 		conn.close()
 	except Error as e:
-		print(e)
+		logerror(f"readpreferences: {e}")
 
 def writepreferences():
 	try:
 		conn = sqlite3.connect(database)
-		sql = "UPDATE preferences SET mycallsign = '" + mycall + "', myclass = '" + myclass + "', mysection = '" + mysection + "', power = '" + power + "', altpower = " + str(
-			int(altpower)) + ", outdoors = " + str(int(outdoors)) + ", notathome = " + str(
-			int(notathome)) + ", satellite = " + str(int(satellite)) + " WHERE id = 1"
+		sql = f"UPDATE preferences SET mycallsign = '{mycall}', myclass = '{myclass}', mysection = '{mysection}', power = '{power}', altpower = {int(altpower)}, outdoors = {int(outdoors)}, notathome = {int(notathome)}, satellite = {int(satellite)} WHERE id = 1"
 		cur = conn.cursor()
 		cur.execute(sql)
 		conn.commit()
@@ -239,7 +236,7 @@ def log_contact(logme):
 def delete_contact(contact):
 	try:
 		conn = sqlite3.connect(database)
-		sql = "delete from contacts where id=" + str(int(contact))
+		sql = f"delete from contacts where id={int(contact)}"
 		cur = conn.cursor()
 		cur.execute(sql)
 		conn.commit()
@@ -254,7 +251,7 @@ def delete_contact(contact):
 def change_contact(qso):
 	try:
 		conn = sqlite3.connect(database)
-		sql = "update contacts set callsign = '"+str(qso[1])+"', class = '"+str(qso[2])+"', section = '"+str(qso[3])+"', date_time = '"+str(qso[4])+"', band = '"+str(qso[5])+"', mode = '"+str(qso[6])+"', power = '"+str(qso[7])+"'  where id="+ str(qso[0])
+		sql = f"update contacts set callsign = '{qso[1]}', class = '{qso[2]}', section = '{qso[3]}', date_time = '{qso[4]}', band = '{qso[5]}', mode = '{qso[6]}', power = '{qso[7]}'  where id={qso[0]}"
 		cur = conn.cursor()
 		cur.execute(sql)
 		conn.commit()
@@ -278,10 +275,10 @@ def readSections():
 					p = abbrev[:-i - 1]
 					secPartial[p] = 1
 			except ValueError as e:
-				print("rd arrl sec dat err, itm skpd: ", e)
+				logerror(f"readSection: rd arrl sec dat err, itm skpd: {e}")
 		fd.close()
 	except IOError as e:
-		print("read error during readSections", e)
+		logerror(f"read error during readSections {e}")
 
 def sectionCheck(sec):
 	if sec == "": sec = "^"
@@ -399,7 +396,7 @@ def getBandModeTally(band, mode):
 	conn = ""
 	conn = sqlite3.connect(database)
 	c = conn.cursor()
-	c.execute("select count(*) as tally, MAX(power) as mpow from contacts where band = '"+band+"' AND mode ='"+mode+"'")
+	c.execute(f"select count(*) as tally, MAX(power) as mpow from contacts where band = '{band}' AND mode ='{mode}'")
 	return c.fetchone()
 
 def getbands():
@@ -426,7 +423,7 @@ def generateBandModeTally():
 			cwt = getBandModeTally(b,"CW")
 			dit = getBandModeTally(b,"DI")
 			pht = getBandModeTally(b,"PH")
-			print("Band:\t%s\t%s\t%s\t%s\t%s\t%s\t%s" % (b, cwt[0], cwt[1], dit[0], dit[1], pht[0], pht[1]), end='\r\n', file=open(bmtfn, "a"))
+			print(f"Band:\t{b}\t{cwt[0]}\t{cwt[1]}\t{dit[0]}\t{dit[1]}\t{pht[0]}\t{pht[1]}", end='\r\n', file=open(bmtfn, "a"))
 			print("-"*60, end='\r\n', file=open(bmtfn, "a"))
 
 def getState(section):
@@ -463,7 +460,7 @@ def adif():
 		loggedtime = datetime[11:13] + datetime[14:16]
 		yy, xx = stdscr.getyx()
 		stdscr.move(15, 1)
-		stdscr.addstr("QRZ Gridsquare Lookup: "+str(counter))
+		stdscr.addstr(f"QRZ Gridsquare Lookup: {counter}")
 		stdscr.move(yy, xx)
 		stdscr.refresh()
 		grid = False
@@ -484,22 +481,22 @@ def adif():
 							name += " " + r.text[r.text.find('<name>')+6:r.text.find('</name>')]
 		except:
 			pass
-		print("<QSO_DATE:%s:d>%s" % (len("".join(loggeddate.split("-"))), "".join(loggeddate.split("-"))), end='\r\n', file=open(logname, "a"))
-		print("<TIME_ON:%s>%s" % (len(loggedtime), loggedtime), end='\r\n', file=open(logname, "a"))
-		print("<CALL:%s>%s" % (len(hiscall), hiscall), end='\r\n', file=open(logname, "a"))
-		print("<MODE:%s>%s" % (len(mode), mode), end='\r\n', file=open(logname, "a"))
-		print("<BAND:%s>%s" % (len(band + "M"), band + "M"), end='\r\n', file=open(logname, "a"))
-		print("<FREQ:%s>%s" % (len(dfreq[band]), dfreq[band]), end='\r\n', file=open(logname, "a"))
-		print("<RST_SENT:%s>%s" % (len(rst), rst), end='\r\n', file=open(logname, "a"))
-		print("<RST_RCVD:%s>%s" % (len(rst), rst), end='\r\n', file=open(logname, "a"))
-		print("<STX_STRING:%s>%s" % (len(myclass + " " + mysection), myclass + " " + mysection), end='\r\n', file=open(logname, "a"))
-		print("<SRX_STRING:%s>%s" % (len(hisclass + " " + hissection), hisclass + " " + hissection), end='\r\n', file=open(logname, "a"))
-		print("<ARRL_SECT:%s>%s" % (len(hissection), hissection), end='\r\n', file=open(logname, "a"))
-		print("<CLASS:%s>%s" % (len(hisclass), hisclass), end='\r\n', file=open(logname, "a"))
+		print(f"<QSO_DATE:{len(''.join(loggeddate.split('-')))}:d>{''.join(loggeddate.split('-'))}", end='\r\n', file=open(logname, "a"))
+		print(f"<TIME_ON:{len(loggedtime)}>{loggedtime}", end='\r\n', file=open(logname, "a"))
+		print(f"<CALL:{len(hiscall)}>{hiscall}", end='\r\n', file=open(logname, "a"))
+		print(f"<MODE:{len(mode)}>{mode}", end='\r\n', file=open(logname, "a"))
+		print(f"<BAND:{len(band + 'M')}>{band}M", end='\r\n', file=open(logname, "a"))
+		print(f"<FREQ:{len(dfreq[band])}>{dfreq[band]}", end='\r\n', file=open(logname, "a"))
+		print(f"<RST_SENT:{len(rst)}>{rst}", end='\r\n', file=open(logname, "a"))
+		print(f"<RST_RCVD:{len(rst)}>{rst}", end='\r\n', file=open(logname, "a"))
+		print(f"<STX_STRING:{len(myclass + ' ' + mysection)}>{myclass} {mysection}", end='\r\n', file=open(logname, "a"))
+		print(f"<SRX_STRING:{len(hisclass + ' ' + hissection)}>{hisclass} {hissection}", end='\r\n', file=open(logname, "a"))
+		print(f"<ARRL_SECT:{len(hissection)}>{hissection}", end='\r\n', file=open(logname, "a"))
+		print(f"<CLASS:{len(hisclass)}>{hisclass}", end='\r\n', file=open(logname, "a"))
 		state = getState(hissection)
-		if state: print("<STATE:%s>%s" % (len(state), state), end='\r\n', file=open(logname, "a"))
-		if grid: print("<GRIDSQUARE:%s>%s" % (len(grid), grid), end='\r\n', file=open(logname, "a"))
-		if name: print("<NAME:%s>%s" % (len(name), name), end='\r\n', file=open(logname, "a"))
+		if state: print(f"<STATE:{len(state)}>{state}", end='\r\n', file=open(logname, "a"))
+		if grid: print(f"<GRIDSQUARE:{len(grid)}>{grid}", end='\r\n', file=open(logname, "a"))
+		if name: print(f"<NAME:{len(name)}>{name}", end='\r\n', file=open(logname, "a"))
 		print("<COMMENT:14>ARRL-FIELD-DAY", end='\r\n', file=open(logname, "a"))
 		print("<EOR>", end='\r\n', file=open(logname, "a"))
 		print("", end='\r\n', file=open(logname, "a"))
@@ -530,21 +527,21 @@ def postcloudlog():
 		rst = "59"
 	loggeddate = datetime[:10]
 	loggedtime = datetime[11:13] + datetime[14:16]
-	adifq = "<QSO_DATE:%s:d>%s" % (len("".join(loggeddate.split("-"))), "".join(loggeddate.split("-")))
-	adifq += "<TIME_ON:%s>%s" % (len(loggedtime), loggedtime)
-	adifq += "<CALL:%s>%s" % (len(hiscall), hiscall)
-	adifq += "<MODE:%s>%s" % (len(mode), mode)
-	adifq += "<BAND:%s>%s" % (len(band + "M"), band + "M")
-	adifq += "<FREQ:%s>%s" % (len(dfreq[band]), dfreq[band])
-	adifq += "<RST_SENT:%s>%s" % (len(rst), rst)
-	adifq += "<RST_RCVD:%s>%s" % (len(rst), rst)
-	adifq += "<STX_STRING:%s>%s" % (len(myclass + " " + mysection), myclass + " " + mysection)
-	adifq += "<SRX_STRING:%s>%s" % (len(hisclass + " " + hissection), hisclass + " " + hissection)
-	adifq += "<ARRL_SECT:%s>%s" % (len(hissection), hissection)
-	adifq += "<CLASS:%s>%s" % (len(hisclass), hisclass)
+	adifq = f"<QSO_DATE:{len(''.join(loggeddate.split('-')))}:d>{''.join(loggeddate.split('-'))}"
+	adifq += f"<TIME_ON:{len(loggedtime)}>{loggedtime}"
+	adifq += f"<CALL:{len(hiscall)}>{hiscall}"
+	adifq += f"<MODE:{len(mode)}>{mode}"
+	adifq += f"<BAND:{len(band)+1}>{band}"
+	adifq += f"<FREQ:{len(dfreq[band])}>{dfreq[band]}"
+	adifq += f"<RST_SENT:{len(rst)}>{rst}"
+	adifq += f"<RST_RCVD:{len(rst)}>{rst}"
+	adifq += f"<STX_STRING:{len(myclass+mysection)+1}>{myclass} {mysection}"
+	adifq += f"<SRX_STRING:{len(hisclass+hissection)+1}>{hisclass} {hissection}"
+	adifq += f"<ARRL_SECT:{len(hissection)}>{hissection}"
+	adifq += f"<CLASS:{len(hisclass)}>{hisclass}"
 	state = getState(hissection)
-	if state: adifq += "<STATE:%s>%s" % (len(state), state)
-	if grid: adifq += "<GRIDSQUARE:%s>%s" % (len(grid), grid)
+	if state: adifq += f"<STATE:{len(state)}>{state}"
+	if grid: adifq += f"<GRIDSQUARE:{len(grid)}>{grid}"
 	adifq += "<COMMENT:14>ARRL-FIELD-DAY"
 	adifq += "<EOR>"
 
@@ -576,14 +573,14 @@ def cabrillo():
 	else:
 		catpower = "LOW"
 	print("START-OF-LOG: 3.0", end='\r\n', file=open(logname, "w"))
-	print("LOCATION:", mysection, end='\r\n', file=open(logname, "a"))
-	print("CALLSIGN:", mycall, end='\r\n', file=open(logname, "a"))
+	print(f"LOCATION: {mysection}", end='\r\n', file=open(logname, "a"))
+	print(f"CALLSIGN: {mycall}", end='\r\n', file=open(logname, "a"))
 	print("CONTEST: ARRL-FIELD-DAY", end='\r\n', file=open(logname, "a"))
 	print("CLUB:",end='\r\n', file=open(logname, "a"))
 	print("CATEGORY-OPERATOR: SINGLE-OP\r\nCATEGORY-ASSISTED: NON-ASSISTED\r\nCATEGORY-BAND: ALL\r\nCATEGORY-MODE: MIXED\r\nCATEGORY-STATION: PORTABLE\r\nCATEGORY-TRANSMITTER: ONE", end='\r\n', file=open(logname, "a"))
-	print("CATEGORY-POWER: " + catpower, end='\r\n', file=open(logname, "a"))
-	print("CLAIMED-SCORE: " + str(score()), end='\r\n', file=open(logname, "a"))
-	print("OPERATORS:", mycall, end='\r\n', file=open(logname, "a"))
+	print(f"CATEGORY-POWER: {catpower}", end='\r\n', file=open(logname, "a"))
+	print(f"CLAIMED-SCORE: {score()}", end='\r\n', file=open(logname, "a"))
+	print(f"OPERATORS: {mycall}", end='\r\n', file=open(logname, "a"))
 	print("NAME: ", end='\r\n', file=open(logname, "a"))
 	print("ADDRESS: ", end='\r\n', file=open(logname, "a"))
 	print("ADDRESS-CITY: ", end='\r\n', file=open(logname, "a"))
@@ -597,8 +594,7 @@ def cabrillo():
 		if mode == "DI": mode = "DG"
 		loggeddate = datetime[:10]
 		loggedtime = datetime[11:13] + datetime[14:16]
-		print("QSO:", band.rjust(3) + "M", mode, loggeddate, loggedtime, mycall.ljust(14), myclass.ljust(3), mysection.ljust(5), hiscall.ljust(14), hisclass.ljust(3),
-			  hissection, sep=' ', end='\r\n', file=open(logname, "a"))
+		print(f"QSO: {band.rjust(3)}M {mode} {loggeddate} {loggedtime} {mycall.ljust(14)} {myclass.ljust(3)} {mysection.ljust(5)} {hiscall.ljust(14)} {hisclass.ljust(3)} {hissection}", end='\r\n', file=open(logname, "a"))
 	print("END-OF-LOG:", end='\r\n', file=open(logname, "a"))
 
 	generateBandModeTally()
@@ -606,7 +602,7 @@ def cabrillo():
 	oy, ox = stdscr.getyx()
 	window = curses.newpad(10, 33)
 	rectangle(stdscr, 11, 0, 21, 34)
-	window.addstr(0, 0, "Log written to: " + logname)
+	window.addstr(0, 0, f"Log written to: {logname}")
 	window.addstr(1, 0, "Stats written to: Statistics.txt")
 	window.addstr(2, 0, "Writing ADIF to: FieldDay.adi")
 	stdscr.refresh()
@@ -640,8 +636,7 @@ def logwindow():
 		hissection = hissection + sectfiller[:-len(hissection)]
 		band = band + sectfiller[:-len(band)]
 		mode = mode + modefiller[:-len(mode)]
-		logline = logid + " " + hiscall + " " + hisclass + " " + hissection + " " + datetime + " " + band + " " + mode + " " + str(
-			power)
+		logline = f"{logid} {hiscall} {hisclass} {hissection} {datetime} {band} {mode} {power}"
 		contacts.addstr(logNumber, 0, logline)
 		logNumber += 1
 	stdscr.refresh()
@@ -679,8 +674,7 @@ def dupCheck(acall):
 
 	conn = sqlite3.connect(database)
 	c = conn.cursor()
-	c.execute(
-		"select callsign, class, section, band, mode from contacts where callsign like '" + acall + "' order by band")
+	c.execute(f"select callsign, class, section, band, mode from contacts where callsign like '{acall}' order by band")
 	log = c.fetchall()
 	conn.close()
 	counter = 0
@@ -693,7 +687,7 @@ def dupCheck(acall):
 			curses.beep()
 		else:
 			decorate = curses.A_NORMAL
-		scpwindow.addstr(counter, 0, hiscall + ": " + hisband + " " + hismode, decorate)
+		scpwindow.addstr(counter, 0, f"{hiscall}: {hisband} {hismode}", decorate)
 		counter = counter + 1
 	stdscr.refresh()
 	scpwindow.refresh(0, 0, 12, 1, 20, 33)
@@ -705,7 +699,7 @@ def displaySCP(matches):
 	for x in matches:
 		wy, wx = scpwindow.getyx()
 		if (33 - wx) < len(str(x)): scpwindow.move(wy + 1, 0)
-		scpwindow.addstr(str(x) + " ")
+		scpwindow.addstr(f"{x} ")
 	stdscr.refresh()
 	scpwindow.refresh(0, 0, 12, 1, 20, 33)
 
@@ -876,16 +870,16 @@ def statusline():
 	now = datetime.now().isoformat(' ')[5:19].replace('-', '/')
 	utcnow = datetime.utcnow().isoformat(' ')[5:19].replace('-', '/')
 	try:
-		stdscr.addstr(22, 59, "Local: " + now)
-		stdscr.addstr(23, 61, "UTC: " + utcnow)
+		stdscr.addstr(22, 59, f"Local: {now}")
+		stdscr.addstr(23, 61, f"UTC: {utcnow}")
 	except curses.error as e:
 		logerror(f"statusline: {e}")
 
 	stdscr.addstr(23, 1, "Band:        Mode:")
-	stdscr.addstr(23, 7, "  " + band + "  ", curses.A_REVERSE)
-	stdscr.addstr(23, 20, "  " + mode + "  ", curses.A_REVERSE)
+	stdscr.addstr(23, 7, f"  {band}  ", curses.A_REVERSE)
+	stdscr.addstr(23, 20, f"  {mode}  ", curses.A_REVERSE)
 	stdscr.addstr(23, 27, "                            ")
-	stdscr.addstr(23, 27, " " + mycall + "|" + myclass + "|" + mysection + "|" + power + "w ", curses.A_REVERSE)
+	stdscr.addstr(23, 27, f" {mycall}|{myclass}|{mysection}|{power}w ", curses.A_REVERSE)
 	stdscr.addstr(23,50,"Rig", highlightBonus(rigonline))
 
 	stdscr.move(y, x)
@@ -1188,13 +1182,13 @@ def EditClickedQSO(line):
 	qsoew.keypad(True)
 	qsoew.nodelay(True)
 	qsoew.box()
-	qsoew.addstr(1, 1, "Call   : " + qso[1])
-	qsoew.addstr(2, 1, "Class  : " + qso[2])
-	qsoew.addstr(3, 1, "Section: " + qso[3])
-	qsoew.addstr(4, 1, "At     : " + qso[4])
-	qsoew.addstr(5, 1, "Band   : " + qso[5])
-	qsoew.addstr(6, 1, "Mode   : " + qso[6])
-	qsoew.addstr(7, 1, "Powers : " + qso[7])
+	qsoew.addstr(1, 1, f"Call   : {qso[1]}")
+	qsoew.addstr(2, 1, f"Class  : {qso[2]}")
+	qsoew.addstr(3, 1, f"Section: {qso[3]}")
+	qsoew.addstr(4, 1, f"At     : {qso[4]}")
+	qsoew.addstr(5, 1, f"Band   : {qso[5]}")
+	qsoew.addstr(6, 1, f"Mode   : {qso[6]}")
+	qsoew.addstr(7, 1, f"Powers : {qso[7]}")
 	qsoew.addstr(8, 1, "[Enter] to save          [Esc] to exit")
 	displayEditField(1)
 	while 1:
@@ -1214,7 +1208,7 @@ def editQSO(q):
 	global qsoew, qso, quit
 	conn = sqlite3.connect(database)
 	c = conn.cursor()
-	c.execute("select * from contacts where id=" + q)
+	c.execute(f"select * from contacts where id={q}")
 	log = c.fetchall()
 	conn.close()
 	if not log: return
@@ -1224,13 +1218,13 @@ def editQSO(q):
 	qsoew.keypad(True)
 	qsoew.nodelay(True)
 	qsoew.box()
-	qsoew.addstr(1, 1, "Call   : " + qso[1])
-	qsoew.addstr(2, 1, "Class  : " + qso[2])
-	qsoew.addstr(3, 1, "Section: " + qso[3])
-	qsoew.addstr(4, 1, "At     : " + qso[4])
-	qsoew.addstr(5, 1, "Band   : " + qso[5])
-	qsoew.addstr(6, 1, "Mode   : " + qso[6])
-	qsoew.addstr(7, 1, "Powers : " + str(qso[7]))
+	qsoew.addstr(1, 1, f"Call   : {qso[1]}")
+	qsoew.addstr(2, 1, f"Class  : {qso[2]}")
+	qsoew.addstr(3, 1, f"Section: {qso[3]}")
+	qsoew.addstr(4, 1, f"At     : {qso[4]}")
+	qsoew.addstr(5, 1, f"Band   : {qso[5]}")
+	qsoew.addstr(6, 1, f"Mode   : {qso[6]}")
+	qsoew.addstr(7, 1, f"Powers : {qso[7]}")
 	qsoew.addstr(8, 1, "[Enter] to save          [Esc] to exit")
 	displayEditField(1)
 	while 1:

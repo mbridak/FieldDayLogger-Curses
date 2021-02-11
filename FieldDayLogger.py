@@ -16,19 +16,16 @@ try:
 	cloudlogapi="cl12345678901234567890"
 	cloudlogurl="http://www.yoururl.com/Cloudlog/index.php/api/qso"
 	qrzurl="https://xmldata.qrz.com/xml/"
-	qrzname="w1aw"
-	qrzpass="secret"
-	payload = {'username':qrzname, 'password':qrzpass}
-	r=requests.get(qrzurl,params=payload, timeout=1.0)
-	if r.status_code == 200 and r.text.find('<Key>') > 0:
-		qrzsession=r.text[r.text.find('<Key>')+5:r.text.find('</Key>')]
-	else:
-		qrzsession = False
+	qrzname=""
+	qrzpass=""
+	qrzsession=False
+	useqrz=True
+	usehamdb=True
 except:
 	cloudlogapi = False
 	cloudlogurl = False
-	qrz=False
-	qrzsession=False
+	useqrz=False
+
 
 import curses
 import time
@@ -52,7 +49,7 @@ EnterKey = 10
 Space = 32
 
 bands = ('160', '80', '40', '20', '15', '10', '6', '2', '222', '432', 'SAT')
-dfreq = {'160':"1.800", '80':"3.500", '40':"7.000", '20':"14.000", '15':"21.000", '10':"28.000", '6':"50.000", '2':"144.000", '222':"222.000", '432':"432.000", 'SAT':"0.0"}
+dfreq = {'160':"1.830", '80':"3.530", '60':"53.300", '40':"7.030", '20':"14.030", '15':"21.030", '10':"28.030", '6':"50.030", '2':"144.030", '222':"222.030", '432':"432.030", 'SAT':"0.0"}
 modes = ('PH', 'CW', 'DI')
 
 mycall = "YOURCALL"
@@ -103,6 +100,57 @@ try:
 	rigctrlsocket.connect((rigctrlhost, rigctrlport))
 except:
 	rigonline = False
+
+def qrzauth():
+	global qrzsession, useqrz
+	if useqrz:
+		try:
+			payload = {'username':qrzname, 'password':qrzpass}
+			r=requests.get(qrzurl,params=payload, timeout=1.0)
+			if r.status_code == 200 and r.text.find('<Key>') > 0:
+				qrzsession=r.text[r.text.find('<Key>')+5:r.text.find('</Key>')]
+			else:
+				qrzsession = False
+			if r.status_code == 200 and r.text.find('<Error>') > 0:
+				errorText = r.text[r.text.find('<Error>')+7:r.text.find('</Error>')]
+				logerror(f"QRZ Error: {errorText}")
+		except requests.exceptions.RequestException as e:
+			logerror(f"****QRZ Error****{e}")
+	else:
+		qrzsession = False
+
+def qrzlookup(call):
+	global qrzsession, useqrz, qrzurl, usehamdb
+	grid = False
+	name = False
+	try:
+		if qrzsession and useqrz:
+			payload = {'s':qrzsession, 'callsign':call}
+			r=requests.get(qrzurl,params=payload, timeout=3.0)
+			if not r.text.find('<Key>'): #key expired get a new one
+				qrzauth()
+				if qrzsession:
+					payload = {'s':qrzsession, 'callsign':call}
+					r=requests.get(qrzurl,params=payload, timeout=3.0)
+		elif usehamdb:
+			r=requests.get(f"http://api.hamdb.org/v1/{call}/xml/k6gtefdlogger",timeout=3.0)
+		if r.status_code == 200:
+			if r.text.find('<Error>') > 0:
+				errorText = r.text[r.text.find('<Error>')+7:r.text.find('</Error>')]
+				logerror(f"QRZ/HamDB Error: {errorText}")
+			if r.text.find('<grid>') > 0:
+				grid = r.text[r.text.find('<grid>')+6:r.text.find('</grid>')]
+			if r.text.find('<fname>') > 0:
+				name = r.text[r.text.find('<fname>')+7:r.text.find('</fname>')]
+			if r.text.find('<name>') > 0:
+				if not name:
+					name = r.text[r.text.find('<name>')+6:r.text.find('</name>')]
+				else:
+					name += " " + r.text[r.text.find('<name>')+6:r.text.find('</name>')]
+	except:
+		logerror("Something smells...")
+	return grid, name
+
 
 def getband(freq):
 	if freq.isnumeric():
@@ -236,7 +284,7 @@ def log_contact(logme):
 def delete_contact(contact):
 	try:
 		conn = sqlite3.connect(database)
-		sql = f"delete from contacts where id={int(contact)}"
+		sql = f"delete from contacts where id={contact}"
 		cur = conn.cursor()
 		cur.execute(sql)
 		conn.commit()
@@ -436,7 +484,7 @@ def getState(section):
 	return False
 
 def adif():
-	global qrzsession
+	global qrzsession, useqrz
 	logname = "FieldDay.adi"
 	conn = sqlite3.connect(database)
 	c = conn.cursor()
@@ -463,24 +511,7 @@ def adif():
 		stdscr.addstr(f"QRZ Gridsquare Lookup: {counter}")
 		stdscr.move(yy, xx)
 		stdscr.refresh()
-		grid = False
-		name = False
-		try:
-			if qrzsession:
-				payload = {'s':qrzsession, 'callsign':hiscall}
-				r=requests.get(qrzurl,params=payload, timeout=3.0)
-				if r.status_code == 200:
-					if r.text.find('<grid>') > 0:
-						grid = r.text[r.text.find('<grid>')+6:r.text.find('</grid>')]
-					if r.text.find('<fname>') > 0:
-						name = r.text[r.text.find('<fname>')+7:r.text.find('</fname>')]
-					if r.text.find('<name>') > 0:
-						if not name:
-							name = r.text[r.text.find('<name>')+6:r.text.find('</name>')]
-						else:
-							name += " " + r.text[r.text.find('<name>')+6:r.text.find('</name>')]
-		except:
-			pass
+		grid, name = qrzlookup(hiscall)
 		print(f"<QSO_DATE:{len(''.join(loggeddate.split('-')))}:d>{''.join(loggeddate.split('-'))}", end='\r\n', file=open(logname, "a"))
 		print(f"<TIME_ON:{len(loggedtime)}>{loggedtime}", end='\r\n', file=open(logname, "a"))
 		print(f"<CALL:{len(hiscall)}>{hiscall}", end='\r\n', file=open(logname, "a"))
@@ -507,7 +538,6 @@ def adif():
 	stdscr.refresh()
 
 def postcloudlog():
-	global qrzsession
 	if not cloudlogapi: return
 	conn = sqlite3.connect(database)
 	c = conn.cursor()
@@ -515,12 +545,7 @@ def postcloudlog():
 	q = c.fetchone()
 	conn.close()
 	_, hiscall, hisclass, hissection, datetime, band, mode, _ = q
-	grid = False
-	if qrzsession:
-		payload = {'s':qrzsession, 'callsign':hiscall}
-		r=requests.get(qrzurl,params=payload, timeout=1.0)
-		if r.status_code == 200:
-			grid = r.text[r.text.find('<grid>')+6:r.text.find('</grid>')]
+	grid, name = qrzlookup(hiscall)
 	if mode == "CW":
 		rst = "599"
 	else:
@@ -542,6 +567,7 @@ def postcloudlog():
 	state = getState(hissection)
 	if state: adifq += f"<STATE:{len(state)}>{state}"
 	if grid: adifq += f"<GRIDSQUARE:{len(grid)}>{grid}"
+	if name: adifq += f"<NAME:{len(name)}>{name}"
 	adifq += "<COMMENT:14>ARRL-FIELD-DAY"
 	adifq += "<EOR>"
 
@@ -1270,6 +1296,7 @@ def main(s):
 	readpreferences()
 	stats()
 	displayHelp()
+	qrzauth()
 	stdscr.refresh()
 	stdscr.move(9, 1)
 	while 1:

@@ -15,7 +15,7 @@ try:
 	import requests
 	cloudlogapi="cl12345678901234567890"
 	cloudlogurl="http://www.yoururl.com/Cloudlog/index.php/api/qso"
-	qrzurl="http://xmldata.qrz.com/xml/"
+	qrzurl="https://xmldata.qrz.com/xml/"
 	qrzname="w1aw"
 	qrzpass="secret"
 	payload = {'username':qrzname, 'password':qrzpass}

@@ -101,9 +101,17 @@ try:
 except:
 	rigonline = False
 
+def has_internet():
+	try:
+		socket.create_connection(("1.1.1.1", 53))
+		return True
+	except OSError:
+		pass
+	return False
+
 def qrzauth():
 	global qrzsession, useqrz
-	if useqrz:
+	if useqrz and has_internet():
 		try:
 			payload = {'username':qrzname, 'password':qrzpass}
 			r=requests.get(qrzurl,params=payload, timeout=1.0)
@@ -123,8 +131,9 @@ def qrzlookup(call):
 	global qrzsession, useqrz, qrzurl, usehamdb
 	grid = False
 	name = False
+	internet_good = has_internet()
 	try:
-		if qrzsession and useqrz:
+		if qrzsession and useqrz and internet_good:
 			payload = {'s':qrzsession, 'callsign':call}
 			r=requests.get(qrzurl,params=payload, timeout=3.0)
 			if not r.text.find('<Key>'): #key expired get a new one
@@ -132,7 +141,7 @@ def qrzlookup(call):
 				if qrzsession:
 					payload = {'s':qrzsession, 'callsign':call}
 					r=requests.get(qrzurl,params=payload, timeout=3.0)
-		elif usehamdb:
+		elif usehamdb and internet_good:
 			r=requests.get(f"http://api.hamdb.org/v1/{call}/xml/k6gtefdlogger",timeout=3.0)
 		if r.status_code == 200:
 			if r.text.find('<Error>') > 0:

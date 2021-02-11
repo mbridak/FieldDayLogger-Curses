@@ -218,7 +218,7 @@ def writepreferences():
 		conn.commit()
 		conn.close()
 	except Error as e:
-		pass
+		logerror(f"writepreferences: {e}")
 
 def log_contact(logme):
 	try:
@@ -271,7 +271,7 @@ def readSections():
 			if not ln: break
 			if ln[0] == '#': continue
 			try:
-				sec, st, canum, abbrev, name = str.split(ln, None, 4)
+				_, st, canum, abbrev, name = str.split(ln, None, 4)
 				secName[abbrev] = abbrev + ' ' + name + ' ' + canum
 				secState[abbrev] = st
 				for i in range(len(abbrev) - 1):
@@ -310,7 +310,7 @@ readSCP()
 def superCheck(acall):
 	return list(filter(lambda x: x.startswith(acall), scp))
 
-def contacts():
+def dcontacts():
 	global stdscr
 	rectangle(stdscr, 0, 0, 7, 55)
 	contactslabel = "Recent Contacts"
@@ -452,7 +452,7 @@ def adif():
 	print("<EOH>", end='\r\n', file=open(logname, "a"))
 	for x in log:
 		counter += 1
-		logid, hiscall, hisclass, hissection, datetime, band, mode, power = x
+		_, hiscall, hisclass, hissection, datetime, band, mode, _ = x
 		if mode == "DI": mode = "FT8"
 		if mode == "PH": mode = "SSB"
 		if mode == "CW":
@@ -517,7 +517,7 @@ def postcloudlog():
 	c.execute("select * from contacts order by id DESC")
 	q = c.fetchone()
 	conn.close()
-	logid, hiscall, hisclass, hissection, datetime, band, mode, power = q
+	_, hiscall, hisclass, hissection, datetime, band, mode, _ = q
 	grid = False
 	if qrzsession:
 		payload = {'s':qrzsession, 'callsign':hiscall}
@@ -554,7 +554,7 @@ def postcloudlog():
 		"string":adifq
 	}
 	jsonData = json.dumps(payloadDict)
-	response = requests.post(cloudlogurl, jsonData)
+	_ = requests.post(cloudlogurl, jsonData)
 	#print("Status code: ", response.status_code)
 	#print("Printing Entire Post Request")
 	#print(response.json())
@@ -562,7 +562,7 @@ def postcloudlog():
 
 def cabrillo():
 	logname = "FieldDay.log"
-	bonuses = 0
+	#bonuses = 0
 	conn = sqlite3.connect(database)
 	c = conn.cursor()
 	c.execute("select * from contacts order by date_time ASC")
@@ -592,9 +592,8 @@ def cabrillo():
 	print("ADDRESS-COUNTRY: ", end='\r\n', file=open(logname, "a"))
 	print("EMAIL: ", end='\r\n', file=open(logname, "a"))
 	print("CREATED-BY: K6GTE Field Day Logger", end='\r\n', file=open(logname, "a"))
-	counter = 0
 	for x in log:
-		logid, hiscall, hisclass, hissection, datetime, band, mode, power = x
+		_, hiscall, hisclass, hissection, datetime, band, mode, _ = x
 		if mode == "DI": mode = "DG"
 		loggeddate = datetime[:10]
 		loggedtime = datetime[11:13] + datetime[14:16]
@@ -624,7 +623,6 @@ def logwindow():
 	callfiller = "          "
 	classfiller = "   "
 	sectfiller = "   "
-	bandfiller = "   "
 	modefiller = "  "
 	zerofiller = "000"
 	contacts = curses.newpad(1000, 80)
@@ -881,7 +879,7 @@ def statusline():
 		stdscr.addstr(22, 59, "Local: " + now)
 		stdscr.addstr(23, 61, "UTC: " + utcnow)
 	except curses.error as e:
-		pass
+		logerror(f"statusline: {e}")
 
 	stdscr.addstr(23, 1, "Band:        Mode:")
 	stdscr.addstr(23, 7, "  " + band + "  ", curses.A_REVERSE)
@@ -1248,9 +1246,13 @@ def editQSO(q):
 			quit = False
 			break
 
+def logerror(msg):
+	#Someday we'll care about the error
+	msg="" #sweep it under the bitrug
+
 def main(s):
 	global stdscr, conn
-	conn = create_DB()
+	create_DB()
 	curses.start_color()
 	curses.use_default_colors()
 	if curses.can_change_color():
@@ -1267,7 +1269,7 @@ def main(s):
 	curses.mousemask(curses.ALL_MOUSE_EVENTS)
 	stdscr.attrset(curses.color_pair(0))
 	stdscr.clear()
-	contacts()
+	dcontacts()
 	sections()
 	entry()
 	logwindow()

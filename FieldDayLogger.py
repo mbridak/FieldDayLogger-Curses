@@ -13,22 +13,38 @@ COLOR_YELLOW	Yellow
 try:
 	import json
 	import requests
+
+	"""
+		Change to your API key and URL for CloudLog
+	"""
 	cloudlogapi="cl12345678901234567890"
 	cloudlogurl="http://www.yoururl.com/Cloudlog/index.php/api/qso"
+	
+	"""
+		change to your QRZ credentials.
+		If credentials fail the lookup will fallback to HamDB 
+	"""
 	qrzurl="https://xmldata.qrz.com/xml/"
 	qrzname=""
 	qrzpass=""
-	qrzsession=False
-	useqrz=True
-	usehamdb=True
+
+	"""
+		If you're going to have internet and you want to use the below services, change them to True
+	"""
+	useqrz=False
+	usehamdb=False
+	usecloudlog = False
+
 except:
 	cloudlogapi = False
 	cloudlogurl = False
 	useqrz=False
 
+qrzsession=False
+cloudlogauthenticated=False
 
 import curses
-import time
+import time,sys,os
 import sqlite3
 import socket
 
@@ -52,7 +68,7 @@ bands = ('160', '80', '40', '20', '15', '10', '6', '2', '222', '432', 'SAT')
 dfreq = {'160':"1.830", '80':"3.530", '60':"53.300", '40':"7.030", '20':"14.030", '15':"21.030", '10':"28.030", '6':"50.030", '2':"144.030", '222':"222.030", '432':"432.030", 'SAT':"0.0"}
 modes = ('PH', 'CW', 'DI')
 
-mycall = "YOURCALL"
+mycall = "CALL"
 myclass = "CLASS"
 mysection = "SECT"
 power = "0"
@@ -100,6 +116,17 @@ try:
 	rigctrlsocket.connect((rigctrlhost, rigctrlport))
 except:
 	rigonline = False
+
+def relpath(filename):
+	"""
+	This is used if run as a pyinstaller packaged application.
+	So the app can find the temp files.
+	"""
+	try:
+		base_path = sys._MEIPASS # pylint: disable=no-member
+	except:
+		base_path = os.path.abspath(".")
+	return os.path.join(base_path, filename)
 
 def has_internet():
 	try:
@@ -159,6 +186,19 @@ def qrzlookup(call):
 	except:
 		logerror("Something smells...")
 	return grid, name
+
+def cloudlogauth():
+	global cloudlogauthenticated, cloudlogurl, usecloudlog, cloudlogapi
+	cloudlogauthenticated = False
+	if usecloudlog:
+		try:
+			test = f"{cloudlogurl[:-3]}auth/{cloudlogapi}"
+			r=requests.get(test,params={}, timeout=2.0)
+			if r.status_code == 200 and r.text.find('<status>') > 0:
+				if r.text[r.text.find('<status>')+8:r.text.find('</status>')] == "Valid":
+					cloudlogauthenticated = True
+		except requests.exceptions.RequestException as e:
+			logerror(f"****Cloudlog Auth Error:****\n{e}\n")
 
 
 def getband(freq):
@@ -234,7 +274,7 @@ def create_DB():
 		c = conn.cursor()
 		sql_table = """ CREATE TABLE IF NOT EXISTS contacts (id INTEGER PRIMARY KEY, callsign text NOT NULL, class text NOT NULL, section text NOT NULL, date_time text NOT NULL, band text NOT NULL, mode text NOT NULL, power INTEGER NOT NULL); """
 		c.execute(sql_table)
-		sql_table = """ CREATE TABLE IF NOT EXISTS preferences (id INTEGER, mycallsign TEXT DEFAULT 'YOURCALL', myclass TEXT DEFAULT 'YOURCLASS', mysection TEXT DEFAULT 'YOURSECTION', power TEXT DEFAULT '0', altpower INTEGER DEFAULT 0, outdoors INTEGER DEFAULT 0, notathome INTEGER DEFAULT 0, satellite INTEGER DEFAULT 0); """
+		sql_table = """ CREATE TABLE IF NOT EXISTS preferences (id INTEGER, mycallsign TEXT DEFAULT 'CALL', myclass TEXT DEFAULT 'YOURCLASS', mysection TEXT DEFAULT 'YOURSECTION', power TEXT DEFAULT '0', altpower INTEGER DEFAULT 0, outdoors INTEGER DEFAULT 0, notathome INTEGER DEFAULT 0, satellite INTEGER DEFAULT 0); """
 		c.execute(sql_table)
 		conn.commit()
 		conn.close()
@@ -319,7 +359,7 @@ def change_contact(qso):
 
 def readSections():
 	try:
-		fd = open("arrl_sect.dat", "r")  # read section data
+		fd = open(relpath("arrl_sect.dat"), "r")  # read section data
 		while 1:
 			ln = fd.readline().strip()  # read a line and put in db
 			if not ln: break
@@ -354,7 +394,7 @@ readSections()
 
 def readSCP():
 	global scp
-	f = open("MASTER.SCP")
+	f = open(relpath("MASTER.SCP"))
 	scp = f.readlines()
 	f.close()
 	scp = list(map(lambda x: x.strip(), scp))
@@ -547,7 +587,7 @@ def adif():
 	stdscr.refresh()
 
 def postcloudlog():
-	if not cloudlogapi: return
+	if not cloudlogapi or not cloudlogauthenticated: return
 	conn = sqlite3.connect(database)
 	c = conn.cursor()
 	c.execute("select * from contacts order by id DESC")
@@ -1306,6 +1346,7 @@ def main(s):
 	stats()
 	displayHelp()
 	qrzauth()
+	cloudlogauth()
 	stdscr.refresh()
 	stdscr.move(9, 1)
 	while 1:

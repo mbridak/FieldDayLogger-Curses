@@ -108,5 +108,6 @@ I've added an adif export of sorts. There's a logistical problem with data modes
 
 ## TODO
   * Enter a contact at a specific time.
+  * CW macros.
 
 Let me know if you think of something else.

@@ -1,14 +1,20 @@
 #!/usr/bin/env python3
 """
-COLOR_BLACK	Black
-COLOR_BLUE	Blue
-COLOR_CYAN	Cyan (light greenish blue)
-COLOR_GREEN	Green
-COLOR_MAGENTA	Magenta (purplish red)
-COLOR_RED	Red
-COLOR_WHITE	White
-COLOR_YELLOW	Yellow
+Field Day Logger Curses
+Who's at fault: Mike Bridak K6GTE
+Contact_______: michael.bridak@gmail.com
 """
+
+# COLOR_BLACK	Black
+# COLOR_BLUE	Blue
+# COLOR_CYAN	Cyan (light greenish blue)
+# COLOR_GREEN	Green
+# COLOR_MAGENTA	Magenta (purplish red)
+# COLOR_RED	Red
+# COLOR_WHITE	White
+# COLOR_YELLOW	Yellow
+
+# The next 3 lines prove I'm a bad person.
 # pylint: disable=invalid-name
 # pylint: disable=too-many-lines
 # pylint: disable=global-statement
@@ -33,7 +39,6 @@ import requests
 
 cloudlogapi = "cl12345678901234567890"
 cloudlogurl = "http://www.yoururl.com/Cloudlog/index.php/api/qso"
-cloudlogauthenticated = False
 
 # change to your QRZ credentials.
 # If credentials fail the lookup will fallback to HamDB
@@ -51,7 +56,6 @@ usecloudlog = False
 
 qrzsession = False
 cloudlogauthenticated = False
-
 
 stdscr = curses.initscr()
 qsoew = 0
@@ -90,10 +94,6 @@ mode = "CW"
 qrp = False
 highpower = False
 bandmodemult = 0
-altpower = False
-outdoors = False
-notathome = False
-satellite = False
 contacts = ""
 contactsOffset = 0
 logNumber = 0
@@ -325,11 +325,7 @@ def create_DB():
                 "mycallsign TEXT DEFAULT 'CALL', "
                 "myclass TEXT DEFAULT 'YOURCLASS', "
                 "mysection TEXT DEFAULT 'YOURSECTION', "
-                "power TEXT DEFAULT '0', "
-                "altpower INTEGER DEFAULT 0, "
-                "outdoors INTEGER DEFAULT 0, "
-                "notathome INTEGER DEFAULT 0, "
-                "satellite INTEGER DEFAULT 0);"
+                "power TEXT DEFAULT '0');"
             )
             cursor.execute(sql_table)
             conn.commit()
@@ -339,7 +335,7 @@ def create_DB():
 
 def readpreferences():
     """Reads preferences"""
-    global mycall, myclass, mysection, power, altpower, outdoors, notathome, satellite
+    global mycall, myclass, mysection, power
     try:
         with sqlite3.connect(database) as conn:
             cursor = conn.cursor()
@@ -353,22 +349,13 @@ def readpreferences():
                         myclass,
                         mysection,
                         power,
-                        altpower,
-                        outdoors,
-                        notathome,
-                        satellite,
                     ) = x
-                    altpower = bool(altpower)
-                    outdoors = bool(outdoors)
-                    notathome = bool(notathome)
-                    satellite = bool(satellite)
+
             else:
                 sql = (
                     "INSERT INTO preferences"
-                    "(id, mycallsign, myclass, mysection, power, "
-                    "altpower, outdoors, notathome, satellite) "
-                    f"VALUES(1,'{mycall}','{myclass}','{mysection}','{power}',{int(altpower)},"
-                    f"{int(outdoors)},{int(notathome)},{int(satellite)})"
+                    "(id, mycallsign, myclass, mysection, power)"
+                    f"VALUES(1,'{mycall}','{myclass}','{mysection}','{power}'"
                 )
                 cursor.execute(sql)
                 conn.commit()
@@ -385,11 +372,7 @@ def writepreferences():
                 f"mycallsign = '{mycall}', "
                 f"myclass = '{myclass}', "
                 f"mysection = '{mysection}', "
-                f"power = '{power}', "
-                f"altpower = {int(altpower)}, "
-                f"outdoors = {int(outdoors)}, "
-                f"notathome = {int(notathome)}, "
-                f"satellite = {int(satellite)} "
+                f"power = '{power}' "
                 "WHERE id = 1"
             )
             cursor = conn.cursor()

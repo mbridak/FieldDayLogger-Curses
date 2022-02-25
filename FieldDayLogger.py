@@ -25,37 +25,52 @@ import sys
 import os
 import sqlite3
 import socket
+from pathlib import Path
 
-from sqlite3 import Error
 from curses.textpad import rectangle
 from curses import wrapper
 from datetime import datetime
 
 import logging
-import json
+from json import loads, dumps
 import requests
+from cat_interface import CAT
+from lookup import HamDBlookup, HamQTH, QRZlookup
 
-# Change to your API key and URL for CloudLog
+if Path("./debug").exists():
+    logging.basicConfig(
+        filename="debug.log",
+        filemode="w",
+        format="%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s",
+        datefmt="%H:%M:%S",
+        level=logging.DEBUG,
+    )
+    logging.debug("Debug started")
+else:
+    logging.basicConfig(level=logging.CRITICAL)
 
-cloudlogapi = "cl12345678901234567890"
-cloudlogurl = "http://www.yoururl.com/Cloudlog/index.php/api/qso"
+preference = {
+    "mycall": "Call",
+    "myclass": "Class",
+    "mysection": "Section",
+    "power": "100",
+    "usehamdb": 0,
+    "useqrz": 0,
+    "usehamqth": 0,
+    "lookupusername": "w1aw",
+    "lookuppassword": "secret",
+    "userigctld": 0,
+    "useflrig": 0,
+    "CAT_ip": "localhost",
+    "CAT_port": 4532,
+    "cloudlog": 0,
+    "cloudlogapi": "c01234567890123456789",
+    "cloudlogurl": "https://www.cloudlog.com/Cloudlog/index.php/api/",
+    "cloudlogstationid": "",
+    "usemarker": 0,
+    "markerfile": ".xplanet/markers/ham",
+}
 
-# change to your QRZ credentials.
-# If credentials fail the lookup will fallback to HamDB
-
-qrzurl = "https://xmldata.qrz.com/xml/134/"
-qrzname = ""
-qrzpass = ""
-
-
-# If you're going to have internet and you want to use the below services, change them to True
-
-useqrz = False
-usehamdb = False
-usecloudlog = False
-
-qrzsession = False
-cloudlogauthenticated = False
 
 stdscr = curses.initscr()
 height, width = stdscr.getmaxyx()
@@ -66,14 +81,32 @@ if height < 24 or width < 80:
 qsoew = 0
 qso = []
 end_program = False
-
+cat_control = None
+look_up = None
+cloudlogauthenticated = False
 BackSpace = 263
 Escape = 27
 QuestionMark = 63
 EnterKey = 10
 Space = 32
 
-bands = ("160", "80", "40", "20", "15", "10", "6", "2", "222", "432", "SAT")
+# Since Field Day is not a 'contest', there are no band limitations
+bands = (
+    "160",
+    "80",
+    "60",
+    "40",
+    "20",
+    "17",
+    "15",
+    "12",
+    "10",
+    "6",
+    "2",
+    "222",
+    "432",
+    "SAT",
+)
 dfreq = {
     "160": "1.830",
     "80": "3.530",
@@ -90,10 +123,6 @@ dfreq = {
 }
 
 modes = ("PH", "CW", "DI")
-mycall = "CALL"
-myclass = "CLASS"
-mysection = "SECT"
-power = "0"
 band = "40"
 mode = "CW"
 qrp = False
@@ -121,15 +150,7 @@ secName = {}
 secState = {}
 oldfreq = "0"
 oldmode = ""
-rigctrlhost = "127.0.0.1"
-rigctrlport = 4532
-rigctrlsocket = socket.socket()
-rigctrlsocket.settimeout(0.1)
-rigonline = True
-try:
-    rigctrlsocket.connect((rigctrlhost, rigctrlport))
-except:
-    rigonline = False
+rigonline = False
 
 
 def relpath(filename):
@@ -153,65 +174,13 @@ def has_internet():
         return False
 
 
-def qrzauth():
-    """Authorizes a QRZ session"""
-    global qrzsession
-    if useqrz and has_internet():
-        try:
-            payload = {"username": qrzname, "password": qrzpass}
-            r = requests.get(qrzurl, params=payload, timeout=1.0)
-            if r.status_code == 200 and r.text.find("<Key>") > 0:
-                qrzsession = r.text[r.text.find("<Key>") + 5 : r.text.find("</Key>")]
-            else:
-                qrzsession = False
-            if r.status_code == 200 and r.text.find("<Error>") > 0:
-                error_text = r.text[
-                    r.text.find("<Error>") + 7 : r.text.find("</Error>")
-                ]
-                logging.debug("QRZ Error: %s", error_text)
-        except requests.exceptions.RequestException as err:
-            logging.debug("****QRZ Error**** %s", err)
-    else:
-        qrzsession = False
-
-
-def qrzlookup(call):
+def call_lookup(call):
     """Lookup call on QRZ"""
     grid = False
     name = False
     internet_good = has_internet()
-    try:
-        if qrzsession and useqrz and internet_good:
-            payload = {"s": qrzsession, "callsign": call}
-            r = requests.get(qrzurl, params=payload, timeout=3.0)
-            if not r.text.find("<Key>"):  # key expired get a new one
-                qrzauth()
-                if qrzsession:
-                    payload = {"s": qrzsession, "callsign": call}
-                    r = requests.get(qrzurl, params=payload, timeout=3.0)
-        elif usehamdb and internet_good:
-            r = requests.get(
-                f"http://api.hamdb.org/v1/{call}/xml/k6gtefdlogger", timeout=3.0
-            )
-        if r.status_code == 200:
-            if r.text.find("<Error>") > 0:
-                error_text = r.text[
-                    r.text.find("<Error>") + 7 : r.text.find("</Error>")
-                ]
-                logging.debug("QRZ/HamDB Error: %s", error_text)
-            if r.text.find("<grid>") > 0:
-                grid = r.text[r.text.find("<grid>") + 6 : r.text.find("</grid>")]
-            if r.text.find("<fname>") > 0:
-                name = r.text[r.text.find("<fname>") + 7 : r.text.find("</fname>")]
-            if r.text.find("<name>") > 0:
-                if not name:
-                    name = r.text[r.text.find("<name>") + 6 : r.text.find("</name>")]
-                else:
-                    name += (
-                        " " + r.text[r.text.find("<name>") + 6 : r.text.find("</name>")]
-                    )
-    except:
-        logging.debug("Something smells...")
+    if look_up and internet_good:
+        grid, name, _, _ = look_up.lookup(call)
     return grid, name
 
 
@@ -219,9 +188,9 @@ def cloudlogauth():
     """Authenticate cloudlog"""
     global cloudlogauthenticated
     cloudlogauthenticated = False
-    if usecloudlog:
+    if preference["cloudlog"]:
         try:
-            test = f"{cloudlogurl[:-3]}auth/{cloudlogapi}"
+            test = f"{preference['cloudlogurl'][:-3]}auth/{preference['cloudlogapi']}"
             r = requests.get(test, params={}, timeout=2.0)
             if r.status_code == 200 and r.text.find("<status>") > 0:
                 if (
@@ -276,35 +245,21 @@ def getmode(rigmode):
     return "DI"  # All else digital
 
 
-def pollRadio():
-    """Polls the radio for it's state"""
+def poll_radio():
+    """Polls the radio for band and mode"""
     global oldfreq, oldmode, rigonline
-    if rigonline:
-        try:
-            # rigctrlsocket.settimeout(0.5)
-            rigctrlsocket.send(b"f\n")
-            newfreq = rigctrlsocket.recv(1024).decode().strip()
-            rigctrlsocket.send(b"m\n")
-            newmode = rigctrlsocket.recv(1024).decode().strip().split()[0]
-            if newfreq != oldfreq or newmode != oldmode:
-                oldfreq = newfreq
-                oldmode = newmode
-                setband(str(getband(newfreq)))
-                setmode(str(getmode(newmode)))
-        except:
+    if cat_control:
+        newfreq = cat_control.get_vfo()
+        newmode = cat_control.get_mode()
+        if newfreq == "" or newmode == "":
             rigonline = False
-
-
-def checkRadio():
-    """checks if the radio is there."""
-    global rigctrlsocket, rigonline
-    rigctrlsocket = socket.socket()
-    rigctrlsocket.settimeout(0.1)
-    rigonline = True
-    try:
-        rigctrlsocket.connect((rigctrlhost, rigctrlport))
-    except:
-        rigonline = False
+            return
+        rigonline = True
+        if newfreq != oldfreq or newmode != oldmode:
+            oldfreq = newfreq
+            oldmode = newmode
+            setband(str(getband(newfreq)))
+            setmode(str(getmode(newmode)))
 
 
 def create_DB():
@@ -324,67 +279,84 @@ def create_DB():
                 "power INTEGER NOT NULL);"
             )
             cursor.execute(sql_table)
-            sql_table = (
-                "CREATE TABLE IF NOT EXISTS preferences "
-                "(id INTEGER, "
-                "mycallsign TEXT DEFAULT 'CALL', "
-                "myclass TEXT DEFAULT 'YOURCLASS', "
-                "mysection TEXT DEFAULT 'YOURSECTION', "
-                "power TEXT DEFAULT '0');"
-            )
-            cursor.execute(sql_table)
             conn.commit()
-    except Error as err:
+    except sqlite3.Error as err:
         print(err)
 
 
 def readpreferences():
-    """Reads preferences"""
-    global mycall, myclass, mysection, power
+    """
+    Restore preferences if they exist, otherwise create some sane defaults.
+    """
+    global preference, cat_control, look_up
+    logging.info("readpreferences:")
     try:
-        with sqlite3.connect(database) as conn:
-            cursor = conn.cursor()
-            cursor.execute("select * from preferences where id = 1")
-            pref = cursor.fetchall()
-            if len(pref) > 0:
-                for x in pref:
-                    (
-                        _,
-                        mycall,
-                        myclass,
-                        mysection,
-                        power,
-                    ) = x
+        if os.path.exists("./fd_preferences.json"):
+            with open(
+                "./fd_preferences.json", "rt", encoding="utf-8"
+            ) as file_descriptor:
+                preference = loads(file_descriptor.read())
+                logging.info("reading: %s", preference)
+        else:
+            writepreferences()
+            curses.endwin()
+            print(
+                "\n\nA basic configuration file has been written to: ./fd_preferences.json"
+            )
+            print("Please edit this file and relaunch the program.\n\n")
+            sys.exit()
+    except IOError as exception:
+        logging.critical("readpreferences: %s", exception)
+    logging.info(preference)
 
-            else:
-                sql = (
-                    "INSERT INTO preferences"
-                    "(id, mycallsign, myclass, mysection, power)"
-                    f"VALUES(1,'{mycall}','{myclass}','{mysection}','{power}'"
-                )
-                cursor.execute(sql)
-                conn.commit()
-    except Error as err:
-        logging.debug("readpreferences: %s", err)
+    cat_control = None
+    if preference["useflrig"]:
+        cat_control = CAT("flrig", preference["CAT_ip"], preference["CAT_port"])
+    if preference["userigctld"]:
+        cat_control = CAT("rigctld", preference["CAT_ip"], preference["CAT_port"])
+
+    if preference["useqrz"]:
+        look_up = QRZlookup(preference["lookupusername"], preference["lookuppassword"])
+        # self.callbook_icon.setText("QRZ")
+        if look_up.session:
+            pass
+            # self.callbook_icon.setStyleSheet("color: rgb(128, 128, 0);")
+        else:
+            pass
+            # self.callbook_icon.setStyleSheet("color: rgb(136, 138, 133);")
+
+    if preference["usehamdb"]:
+        look_up = HamDBlookup()
+        # self.callbook_icon.setText("HamDB")
+        # self.callbook_icon.setStyleSheet("color: rgb(128, 128, 0);")
+
+    if preference["usehamqth"]:
+        look_up = HamQTH(
+            preference["lookupusername"],
+            preference["lookuppassword"],
+        )
+        # self.callbook_icon.setText("HamQTH")
+        if look_up.session:
+            pass
+            # self.callbook_icon.setStyleSheet("color: rgb(128, 128, 0);")
+        else:
+            pass
+            # self.callbook_icon.setStyleSheet("color: rgb(136, 138, 133);")
+
+    cloudlogauth()
 
 
 def writepreferences():
-    """writeout preferences"""
+    """
+    Write preferences to json file.
+    """
     try:
-        with sqlite3.connect(database) as conn:
-            sql = (
-                "UPDATE preferences SET "
-                f"mycallsign = '{mycall}', "
-                f"myclass = '{myclass}', "
-                f"mysection = '{mysection}', "
-                f"power = '{power}' "
-                "WHERE id = 1"
-            )
-            cursor = conn.cursor()
-            cursor.execute(sql)
-            conn.commit()
-    except Error as err:
-        logging.debug("writepreferences: %s", err)
+        logging.info("writepreferences:")
+        with open("./fd_preferences.json", "wt", encoding="utf-8") as file_descriptor:
+            file_descriptor.write(dumps(preference, indent=4))
+            logging.info("writing: %s", preference)
+    except IOError as exception:
+        logging.critical("writepreferences: %s", exception)
 
 
 def log_contact(logme):
@@ -399,7 +371,7 @@ def log_contact(logme):
             cur = conn.cursor()
             cur.execute(sql, logme)
             conn.commit()
-    except Error as err:
+    except sqlite3.Error as err:
         displayinfo(err)
     workedSections()
     sections()
@@ -416,7 +388,7 @@ def delete_contact(contact):
             cursor = conn.cursor()
             cursor.execute(sql)
             conn.commit()
-    except Error as err:
+    except sqlite3.Error as err:
         displayinfo(err)
     workedSections()
     sections()
@@ -484,9 +456,6 @@ def sectionCheck(sec):
     seccheckwindow.refresh(0, 0, 12, 1, 20, 33)
 
 
-read_sections()
-
-
 def readSCP():
     """read section check partial file"""
     global scp
@@ -494,9 +463,6 @@ def readSCP():
     scp = f.readlines()
     f.close()
     scp = list(map(lambda x: x.strip(), scp))
-
-
-readSCP()
 
 
 def superCheck(acall):
@@ -557,6 +523,8 @@ def stats():
 
 def score():
     """Calculates the score"""
+    # fixme
+    # scoring has changed for 2022
     global bandmodemult
     qrpcheck()
     with sqlite3.connect(database) as conn:
@@ -683,7 +651,7 @@ def adif():
             stdscr.addstr(f"QRZ Gridsquare Lookup: {counter + 1}")
             stdscr.move(yy, xx)
             stdscr.refresh()
-            grid, name = qrzlookup(opcall)
+            grid, name = call_lookup(opcall)
             print(
                 f"<QSO_DATE:{len(''.join(loggeddate.split('-')))}:d>"
                 f"{''.join(loggeddate.split('-'))}",
@@ -710,7 +678,8 @@ def adif():
             print(f"<RST_SENT:{len(rst)}>{rst}", end="\r\n", file=file_descriptor)
             print(f"<RST_RCVD:{len(rst)}>{rst}", end="\r\n", file=file_descriptor)
             print(
-                f"<STX_STRING:{len(myclass + ' ' + mysection)}>{myclass} {mysection}",
+                f"<STX_STRING:{len(preference['myclass'] + ' ' + preference['mysection'])}>"
+                f"{preference['myclass']} {preference['mysection']}",
                 end="\r\n",
                 file=file_descriptor,
             )
@@ -752,14 +721,14 @@ def adif():
 
 def postcloudlog():
     """posts a contacts to cloudlog."""
-    if not cloudlogapi or not cloudlogauthenticated:
+    if not preference["cloudlogapi"] or not cloudlogauthenticated:
         return
     with sqlite3.connect(database) as conn:
         cursor = conn.cursor()
         cursor.execute("select * from contacts order by id DESC")
         contact = cursor.fetchone()
     _, opcall, opclass, opsection, the_datetime, the_band, the_mode, _ = contact
-    grid, name = qrzlookup(opcall)
+    grid, name = call_lookup(opcall)
     if the_mode == "CW":
         rst = "599"
     else:
@@ -776,7 +745,8 @@ def postcloudlog():
         f"<FREQ:{len(dfreq[the_band])}>{dfreq[the_band]}"
         f"<RST_SENT:{len(rst)}>{rst}"
         f"<RST_RCVD:{len(rst)}>{rst}"
-        f"<STX_STRING:{len(myclass+mysection)+1}>{myclass} {mysection}"
+        f"<STX_STRING:{len(preference['myclass']+preference['mysection'])+1}>"
+        f"{preference['myclass']} {preference['mysection']}"
         f"<SRX_STRING:{len(opclass+opsection)+1}>{opclass} {opsection}"
         f"<ARRL_SECT:{len(opsection)}>{opsection}"
         f"<CLASS:{len(opclass)}>{opclass}"
@@ -790,9 +760,9 @@ def postcloudlog():
         adifq += f"<NAME:{len(name)}>{name}"
     adifq += "<COMMENT:14>ARRL-FIELD-DAY" "<EOR>"
 
-    payloadDict = {"key": cloudlogapi, "type": "adif", "string": adifq}
-    jsonData = json.dumps(payloadDict)
-    _ = requests.post(cloudlogurl, jsonData)
+    payloadDict = {"key": preference["cloudlogapi"], "type": "adif", "string": adifq}
+    jsonData = dumps(payloadDict)
+    _ = requests.post(preference["cloudlogurl"], jsonData)
 
 
 def cabrillo():
@@ -812,8 +782,8 @@ def cabrillo():
         catpower = "LOW"
     with open(logname, "w", encoding="UTF-8") as file_descriptor:
         print("START-OF-LOG: 3.0", end="\r\n", file=file_descriptor)
-        print(f"LOCATION: {mysection}", end="\r\n", file=file_descriptor)
-        print(f"CALLSIGN: {mycall}", end="\r\n", file=file_descriptor)
+        print(f"LOCATION: {preference['mysection']}", end="\r\n", file=file_descriptor)
+        print(f"CALLSIGN: {preference['mycall']}", end="\r\n", file=file_descriptor)
         print("CONTEST: ARRL-FIELD-DAY", end="\r\n", file=file_descriptor)
         print("CLUB:", end="\r\n", file=file_descriptor)
         print(
@@ -828,7 +798,7 @@ def cabrillo():
         )
         print(f"CATEGORY-POWER: {catpower}", end="\r\n", file=file_descriptor)
         print(f"CLAIMED-SCORE: {score()}", end="\r\n", file=file_descriptor)
-        print(f"OPERATORS: {mycall}", end="\r\n", file=file_descriptor)
+        print(f"OPERATORS: {preference['mycall']}", end="\r\n", file=file_descriptor)
         print("NAME: ", end="\r\n", file=file_descriptor)
         print("ADDRESS: ", end="\r\n", file=file_descriptor)
         print("ADDRESS-CITY: ", end="\r\n", file=file_descriptor)
@@ -844,9 +814,16 @@ def cabrillo():
             loggeddate = the_datetime[:10]
             loggedtime = the_datetime[11:13] + the_datetime[14:16]
             print(
-                f"QSO: {the_band.rjust(3)}M {the_mode} {loggeddate} {loggedtime} "
-                f"{mycall.ljust(14)} {myclass.ljust(3)} {mysection.ljust(5)} "
-                f"{opcall.ljust(14)} {opclass.ljust(3)} {opsection}",
+                f"QSO: {the_band.rjust(3)}M "
+                f"{the_mode} "
+                f"{loggeddate} "
+                f"{loggedtime} "
+                f"{preference['mycall'].ljust(14)} "
+                f"{preference['myclass'].ljust(3)} "
+                f"{preference['mysection'].ljust(5)} "
+                f"{opcall.ljust(14)} "
+                f"{opclass.ljust(3)} "
+                f"{opsection}",
                 end="\r\n",
                 file=file_descriptor,
             )
@@ -1196,7 +1173,13 @@ def statusline():
     stdscr.addstr(23, 20, f"  {mode}  ", curses.A_REVERSE)
     stdscr.addstr(23, 27, "                            ")
     stdscr.addstr(
-        23, 27, f" {mycall}|{myclass}|{mysection}|{power}w ", curses.A_REVERSE
+        23,
+        27,
+        f" {preference['mycall']}|"
+        f"{preference['myclass']}|"
+        f"{preference['mysection']}|"
+        f"{preference['power']}w ",
+        curses.A_REVERSE,
     )
     stdscr.addstr(23, 50, "Rig", highlightBonus(rigonline))
 
@@ -1205,8 +1188,7 @@ def statusline():
 
 def setpower(p):
     """Change power in watts and save as a preference"""
-    global power
-    power = p
+    preference["power"] = p
     writepreferences()
     statusline()
 
@@ -1227,24 +1209,21 @@ def setmode(m):
 
 def setcallsign(c):
     """Sets you callsign for logging and writes preference."""
-    global mycall
-    mycall = str(c)
+    preference["mycall"] = str(c)
     writepreferences()
     statusline()
 
 
 def setclass(c):
     """Sets your class for logging and writes preference."""
-    global myclass
-    myclass = str(c)
+    preference["myclass"] = str(c)
     writepreferences()
     statusline()
 
 
 def setsection(s):
     """Stores your section for logging and writes preference."""
-    global mysection
-    mysection = str(s)
+    preference["mysection"] = str(s)
     writepreferences()
     statusline()
 
@@ -1405,7 +1384,7 @@ def proc_key(key):
             return
         if hiscall == "" or hisclass == "" or hissection == "":
             return
-        contact = (hiscall, hisclass, hissection, band, mode, int(power))
+        contact = (hiscall, hisclass, hissection, band, mode, int(preference["power"]))
         log_contact(contact)
         clearentry()
         return
@@ -1607,6 +1586,8 @@ def editQSO(q):
 
 def main(s):  # pylint: disable=unused-argument
     """Main entry point for the program"""
+    read_sections()
+    readSCP()
     create_DB()
     curses.start_color()
     curses.use_default_colors()
@@ -1631,7 +1612,6 @@ def main(s):  # pylint: disable=unused-argument
     readpreferences()
     stats()
     displayHelp()
-    qrzauth()
     cloudlogauth()
     stdscr.refresh()
     stdscr.move(9, 1)
@@ -1657,10 +1637,7 @@ def main(s):  # pylint: disable=unused-argument
             time.sleep(0.1)
         if end_program:
             break
-        if rigonline is False:
-            checkRadio()
-        else:
-            pollRadio()
+        poll_radio()
 
 
 wrapper(main)

@@ -58,6 +58,11 @@ qrzsession = False
 cloudlogauthenticated = False
 
 stdscr = curses.initscr()
+height, width = stdscr.getmaxyx()
+if height < 24 or width < 80:
+    print("Terminal size needs to be at least 80x24")
+    curses.endwin()
+    sys.exit()
 qsoew = 0
 qso = []
 end_program = False

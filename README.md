@@ -1,6 +1,6 @@
-## K6GTE Field Day logger (Curses)
+# K6GTE Field Day logger (Curses)
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)  [![Python: 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)  [![Made With:Curses](https://img.shields.io/badge/Made%20with-Curses-red)](https://docs.python.org/3/library/curses.html)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)  [![Python: 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)  [![Made With:Curses](https://img.shields.io/badge/Made%20with-Curses-green)](https://docs.python.org/3/library/curses.html)
 
 The logger is written in Python 3, and uses the curses lib. It will work with Linux and Mac, but since the Windows curses lib is lacking it will not work properly in Windows.
 
@@ -10,13 +10,19 @@ The log is stored in an sqlite3 database file 'FieldDay.db'. If you need to wipe
 
 
 ## Caveats
-This is a simple logger ment for single op, it's not usable for clubs.
+This is a simple logger meant for single op. It's not usable for clubs, there is no provision made for aggregating log data from multiple sources.
 
-## What was learned from Field Day 2020.
+# What's going on in the development branch
 
-It worked fairly well. I figured out pretty quickly that I should have made the space bar advance to the next field like the TAB key does. I made that change then pushed the changes to github during Field Day.
+* Lots of PEP8 compliance work, except STUPID things like 'too-many-lines'.
+* Placing things in classes, like CAT control and Callsign lookups.
+* Moving preferences out of the main DB, and into a JSON file.
+* Scoring needs work since the rules have changed.
+* Maybe CW macro keys.
+* Maybe merging in the FT8 code from the GUI version.
 
-Everything else worked just about as expected.
+
+# The basic functionality
 
 ## Commands:
 Commands start with a period character in the callsign field and are immediately followed by any information needed by the command.
@@ -38,10 +44,7 @@ Commands start with a period character in the callsign field and are immediately
 
 After the command is entered press the TAB key to execute it.
 
-## Initial Setup
-When run for the first time, you will need to set your callsign, class, section, band, mode and power used for the contacts.
-
-So when I initially start the program I would enter the following:
+For example, when I initially start the program I could enter the following:
 
 ```
 .KK6GTE
@@ -53,24 +56,77 @@ So when I initially start the program I would enter the following:
 ``` 
 This says I'm K6GTE 1B ORG, running 5 watts CW on 40 Meters.
 
+## Initial Setup
+Before operating for the first time, you will need to edit the preference file that is in a JSON format. The file is named `./fd_preferences.json`. If it is not there or you mangle it badly, just delete it and run the logging program. Another one will be created for you.
+
+Here's an example of it's contents:
+
+```
+
+{
+    "mycall": "K6GTE",
+    "myclass": "1B",
+    "mysection": "ORG",
+    "power": "5",
+    "usehamdb": 0,
+    "useqrz": 1,
+    "usehamqth": 0,
+    "lookupusername": "K6GTE",
+    "lookuppassword": "mysecretpassword",
+    "userigctld": 1,
+    "useflrig": 0,
+    "CAT_ip": "localhost",
+    "CAT_port": 4532,
+    "cloudlog": 0,
+    "cloudlogapi": "c01234567890123456789",
+    "cloudlogurl": "https://www.cloudlog.com/Cloudlog/index.php/api/",
+    "cloudlogstationid": "",
+    "usemarker": 0,
+    "markerfile": ".xplanet/markers/ham"
+}
+
+```
+
+The lines for your callsign, class, section, power are pretty self explanatory. The lines ending in a 0 or a 1 tell the program that you either want to do not want to use a certain feature.
+
+For example the block:
+
+```
+    "usehamdb": 0,
+    "useqrz": 1,
+    "usehamqth": 0,
+```
+
+Tells the program that you want to use QRZ to look up the gridsquare and name of the contact. If the lookup service you choose needs credentials, put them in lookupusername and lookuppassword.
+
+This block:
+
+```
+    "userigctld": 1,
+    "useflrig": 0,
+    "CAT_ip": "localhost",
+    "CAT_port": 4532,
+```
+
+Says, of the two available CAT interface options, flrig or rigctld, I want to use rigctld. And it can be found on localhost:4532.
+
 ## Logging
 Okay you've made a contact. Enter the call in the call field. As you type it in, it will do a super check partial (see below). Press TAB or SPACE to advance to the next field. Once the call is complete it will do a DUP check (see below). It will try and Autofill the next fields (see below). When entering the section, it will do a section partial check (see below). Press the ENTER key to submit the Q to the log. It can send contact to Cloudlog (see below). If it's a busted call or a dup, press the ESC key to clear all inputs and start again.
 
 ## Features
 
-#### Radio Polling via rigctld
-If you run rigctld on the computer that you are logging from, the radio will be polled for band/mode updates automatically. There is an indicator at the bottom of the logging window to indicate polling status. Dim if no connection or timeout, and highlighted if all okay.
+#### Radio Polling via rigctld or flrig
+If you run rigctld or flrig on the computer that you are logging from, the radio will be polled for band/mode updates automatically. There is an indicator at the bottom of the logging window to indicate polling status. Dim if no connection or timeout, and highlighted if all okay.
 
 ![Alt text](https://github.com/mbridak/FieldDayLogger-Curses/raw/master/pics/rigctld.png)
 
-#### Cloudlog and QRZ API's
-If you use either Cloudlog logging or QRZ lookup you can edit the lines in FieldDayLogger.py shown below to enable.
-```
-    cloudlogapi="cl12345678901234567890"
-	cloudlogurl="http://www.yoururl.com/Cloudlog/index.php/api/qso"
-	qrzname="w1aw"
-	qrzpass="secret"
-```
+#### Callsign lookups:
+An option of callsign lookups for gridsquare and op name is offered by one of three services: QRZ, HamDB or HamQTH. The use of these can be turned on or off by editing the JSON preference file.
+ 
+#### Cloudlog
+If you use Cloudlog, contacts can be pushed to your Cloudlog server.
+The use of this can be turned on or off by editing the JSON preference file.
+
 
 #### Editing an existing contact
 Use the Up/Down arrow keys or PageUp/PageDown to scroll the contact into view. Your mouse scroll wheel may work as well. Double left click on the contact to edit, or use the '.E' command. Use the TAB or Up/Down arrow keys to move between fields. Backspace to erase and retype what you need.
@@ -100,14 +156,8 @@ If you have worked this person before on another band/mode the program will load
 #### The Log
 If you've gotten this far I commend you. Let's hope this part actually works, 'cause if you spent 24 hours yelling into a mic, tapity tap taping a Morse key and clickity click clicking on an FT8 screen and all you get is 'sad trombone'... Well...
 
-The command '.L' will as far as I can tell generate a cabrillo log file which you should edit to add your name, email address, home address and possible club affiliation. It will also generate a statistics file with a band/mode breakdown, which is something you'll have to hand enter on the ARRL submission page.
+The command '.L' will as far as I can tell generate a Cabrillo log file which you should edit to add your name, email address, home address and possible club affiliation. It will also generate a statistics file with a band/mode breakdown, which is something you'll have to hand enter on the ARRL submission page.
 
 I've used cr/lf line endings because that's what the log checker expects. So if you edit the file you might want to run the file through 'unix2dos' to make sure the checker does not choke. 
 
-I've added an adif export of sorts. There's a logistical problem with data modes. Field Day does not care what the data mode is, it's just recorded as a generic data contact. So I didn't bother to capture that in the database. So since most of america and maybe canada will use FT8 because it's the new hotness, I just made the data contacts map over to FT8 in ADIF. Sorry. 
-
-## TODO
-  * Enter a contact at a specific time.
-  * CW macros.
-
-Let me know if you think of something else.
+I've added an ADIF export of sorts. There's a logistical problem with data modes. Field Day does not care what the data mode is, it's just recorded as a generic data contact. So I didn't bother to capture that in the database. So since most of america and maybe canada will use FT8 because it's the new hotness, I just made the data contacts map over to FT8 in ADIF. Sorry. 

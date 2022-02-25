@@ -8,3 +8,4 @@ FieldDay\.adi
 Statistics\.txt
 .vscode/settings.json
 dist
+*.pyc

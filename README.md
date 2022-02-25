@@ -87,7 +87,7 @@ Here's an example of it's contents:
 
 ```
 
-The lines for your callsign, class, section, power are pretty self explanatory. The lines ending in a 0 or a 1 tell the program that you either want to do not want to use a certain feature.
+The lines for your callsign, class, section, power are pretty self explanatory. The lines ending in a 0 or a 1 tell the program that you either want or do not want to use a certain feature.
 
 For example the block:
 

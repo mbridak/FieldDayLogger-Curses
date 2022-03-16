@@ -54,6 +54,7 @@ preference = {
     "myclass": "Class",
     "mysection": "Section",
     "power": "100",
+    "altpower": 0,
     "usehamdb": 0,
     "useqrz": 0,
     "usehamqth": 0,
@@ -94,12 +95,9 @@ Space = 32
 bands = (
     "160",
     "80",
-    "60",
     "40",
     "20",
-    "17",
     "15",
-    "12",
     "10",
     "6",
     "2",
@@ -127,7 +125,6 @@ band = "40"
 mode = "CW"
 qrp = False
 highpower = False
-bandmodemult = 0
 contacts = ""
 contactsOffset = 0
 logNumber = 0
@@ -480,7 +477,6 @@ def dcontacts():
 
 def stats():
     """Calculates and displays stats."""
-    global bandmodemult
     y, x = stdscr.getyx()
     with sqlite3.connect(database) as conn:
         cursor = conn.cursor()
@@ -490,8 +486,6 @@ def stats():
         phonecontacts = str(cursor.fetchone()[0])
         cursor.execute("select count(*) from contacts where mode = 'DI'")
         digitalcontacts = str(cursor.fetchone()[0])
-        cursor.execute("select distinct band, mode from contacts")
-        bandmodemult = len(cursor.fetchall())
         cursor.execute(
             "SELECT count(*) FROM contacts where "
             "datetime(date_time) >=datetime('now', '-15 Minutes')"
@@ -524,30 +518,32 @@ def stats():
 def score():
     """Calculates the score"""
     # fixme
-    # scoring has changed for 2022
-    global bandmodemult
+    # scoring has changed for 2022, 100W max PEP
     qrpcheck()
     with sqlite3.connect(database) as conn:
         cursor = conn.cursor()
-        cursor.execute("select count(*) as cw from contacts where mode = 'CW'")
+        cursor.execute(
+            "select count(*) as cw from contacts where mode = 'CW' and power < 101"
+        )
         cw = str(cursor.fetchone()[0])
-        cursor.execute("select count(*) as ph from contacts where mode = 'PH'")
+        cursor.execute(
+            "select count(*) as ph from contacts where mode = 'PH' and power < 101"
+        )
         ph = str(cursor.fetchone()[0])
-        cursor.execute("select count(*) as di from contacts where mode = 'DI'")
+        cursor.execute(
+            "select count(*) as di from contacts where mode = 'DI' and power < 101"
+        )
         di = str(cursor.fetchone()[0])
-        cursor.execute("select distinct band, mode from contacts")
-        bandmodemult = len(cursor.fetchall())
     the_score = (int(cw) * 2) + int(ph) + (int(di) * 2)
-    if qrp:
-        the_score = the_score * 5
-    elif not highpower:
-        the_score = the_score * 2
-    return the_score
+    multiplier = 2
+    if qrp and bool(preference["altpower"]):
+        multiplier = 5
+    return the_score * multiplier
 
 
 def qrpcheck():
     """checks if we are qrp"""
-    global qrp, highpower
+    global qrp
     conn = sqlite3.connect(database)
     c = conn.cursor()
     c.execute("select count(*) as qrpc from contacts where mode = 'CW' and power > 5")
@@ -559,9 +555,6 @@ def qrpcheck():
     c.execute("select count(*) as qrpd from contacts where mode = 'DI' and power > 5")
     log = c.fetchall()
     qrpd = list(log[0])[0]
-    c.execute("select count(*) as highpower from contacts where power > 150")
-    log = c.fetchall()
-    highpower = bool(list(log[0])[0])
     conn.close()
     qrp = not qrpc + qrpp + qrpd
 
@@ -771,13 +764,13 @@ def cabrillo():
     # bonuses = 0
     with sqlite3.connect(database) as conn:
         cursor = conn.cursor()
-        cursor.execute("select * from contacts order by date_time ASC")
+        cursor.execute(
+            "select * from contacts where power < 101 order by date_time ASC"
+        )
         log = cursor.fetchall()
     catpower = ""
     if qrp:
         catpower = "QRP"
-    elif highpower:
-        catpower = "HIGH"
     else:
         catpower = "LOW"
     with open(logname, "w", encoding="UTF-8") as file_descriptor:
@@ -1423,7 +1416,7 @@ def edit_key(key):
         return
     elif key == BackSpace:
         if qso[editFieldFocus] != "":
-            qso[editFieldFocus] = qso[editFieldFocus][0:-1]
+            qso[editFieldFocus] = str(qso[editFieldFocus])[0:-1]
         displayEditField(editFieldFocus)
         return
     elif key == EnterKey:
@@ -1464,14 +1457,14 @@ def edit_key(key):
         if editFieldFocus > 7:
             editFieldFocus = 1
         qsoew.move(editFieldFocus, 10)  # move focus to call field
-        qsoew.addstr(qso[editFieldFocus])
+        qsoew.addstr(str(qso[editFieldFocus]))
         return
     elif key == 259:  # arrow up
         editFieldFocus -= 1
         if editFieldFocus < 1:
             editFieldFocus = 7
         qsoew.move(editFieldFocus, 10)  # move focus to call field
-        qsoew.addstr(qso[editFieldFocus])
+        qsoew.addstr(str(qso[editFieldFocus]))
         return
     elif curses.ascii.isascii(key):
         if len(qso[editFieldFocus]) < maxEditFieldLength[editFieldFocus]:

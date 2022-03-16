@@ -1,8 +1,9 @@
 {
-    "mycall": "Call",
-    "myclass": "Class",
-    "mysection": "Section",
-    "power": "100",
+    "mycall": "K6GTE",
+    "myclass": "1B",
+    "mysection": "ORG",
+    "power": "5",
+    "altpower": 1,
     "usehamdb": 0,
     "useqrz": 0,
     "usehamqth": 0,

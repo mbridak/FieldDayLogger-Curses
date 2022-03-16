@@ -15,9 +15,10 @@ This is a simple logger meant for single op. It's not usable for clubs, there is
 # What's going on in the development branch
 
 * Lots of PEP8 compliance work, except STUPID things like 'too-many-lines'.
-* Placing things in classes, like CAT control and Callsign lookups.
-* Moving preferences out of the main DB, and into a JSON file.
-* Scoring needs work since the rules have changed.
+* Placed things in classes, like CAT control, Callsign lookups, Database functions.
+* Moved preferences out of the main DB, and into a JSON file.
+* ReWorked scoring since rule changes for 2022.
+* Moved call and grid lookups to a thread.
 * Maybe CW macro keys.
 * Maybe merging in the FT8 code from the GUI version.
 
@@ -121,8 +122,10 @@ If you run rigctld or flrig on the computer that you are logging from, the radio
 ![Alt text](https://github.com/mbridak/FieldDayLogger-Curses/raw/master/pics/rigctld.png)
 
 #### Callsign lookups:
-An option of callsign lookups for gridsquare and op name is offered by one of three services: QRZ, HamDB or HamQTH. The use of these can be turned on or off by editing the JSON preference file.
- 
+An option of callsign lookups for gridsquare and op name is offered by one of three services: QRZ, HamDB or HamQTH. The use of these can be turned on or off by editing the JSON preference file. The lookup happens in it's own thread and is kicked off after the cursor leaves the call field. If the look up is successful, you'll see the status line at the bottom change giving you name, grid, bearing and distance to contact.
+
+`K5TUX: JOHN WOODMAN Grid: EM37bb Dir: 74 Dis: 2206     Local: 03/16 15:12:18`
+
 #### Cloudlog
 If you use Cloudlog, contacts can be pushed to your Cloudlog server.
 The use of this can be turned on or off by editing the JSON preference file.

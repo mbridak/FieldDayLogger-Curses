@@ -10,3 +10,5 @@ Statistics\.txt
 dist
 *.pyc
 README.md.backup
+debug
+debug.log

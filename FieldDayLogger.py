@@ -517,8 +517,6 @@ def stats():
 
 def score():
     """Calculates the score"""
-    # fixme
-    # scoring has changed for 2022, 100W max PEP
     qrpcheck()
     with sqlite3.connect(database) as conn:
         cursor = conn.cursor()

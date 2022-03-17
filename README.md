@@ -12,15 +12,13 @@ The log is stored in an sqlite3 database file 'FieldDay.db'. If you need to wipe
 ## Caveats
 This is a simple logger meant for single op. It's not usable for clubs, there is no provision made for aggregating log data from multiple sources.
 
-# What's going on in the development branch
+# Recent changes
 
 * Lots of PEP8 compliance work, except STUPID things like 'too-many-lines'.
 * Placed things in classes, like CAT control, Callsign lookups, Database functions.
 * Moved preferences out of the main DB, and into a JSON file.
 * ReWorked scoring since rule changes for 2022.
 * Moved call and grid lookups to a thread.
-* Maybe CW macro keys.
-* Maybe merging in the FT8 code from the GUI version.
 
 
 # The basic functionality

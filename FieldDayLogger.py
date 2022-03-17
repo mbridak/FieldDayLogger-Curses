@@ -53,7 +53,7 @@ if Path("./debug").exists():
 else:
     logging.basicConfig(level=logging.CRITICAL)
 
-
+# If no preference file exists, one is created from this dictionary.
 preference = {
     "mycall": "Call",
     "myclass": "Class",
@@ -89,6 +89,7 @@ contactlookup = {
 
 stdscr = curses.initscr()
 height, width = stdscr.getmaxyx()
+
 if height < 24 or width < 80:
     print("Terminal size needs to be at least 80x24")
     curses.endwin()
@@ -404,6 +405,9 @@ def readpreferences():
             ) as file_descriptor:
                 preference = loads(file_descriptor.read())
                 logging.info("reading: %s", preference)
+                preference["mycall"] = preference["mycall"].upper()
+                preference["myclass"] = preference["myclass"].upper()
+                preference["mysection"] = preference["mysection"].upper()
         else:
             writepreferences()
             curses.endwin()
@@ -1252,7 +1256,7 @@ def statusline():
         f"{preference['power']}w ",
         curses.A_REVERSE,
     )
-    stdscr.addstr(23, 50, "Rig", highlightBonus(rigonline))
+    stdscr.addstr(23, 56, "Rig", highlightBonus(rigonline))
 
     stdscr.move(y, x)
 

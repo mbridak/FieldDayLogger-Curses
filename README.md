@@ -19,6 +19,7 @@ This is a simple logger meant for single op. It's not usable for clubs, there is
 * Moved preferences out of the main DB, and into a JSON file.
 * ReWorked scoring since rule changes for 2022.
 * Moved call and grid lookups to a thread.
+* Added CW macros. The macros are stored in cwmacros_fd.txt. This works in conjunction with [PyWinKeyerSerial](https://github.com/mbridak/PyWinKeyerSerial). I plan on adding support for cwdaemon, and I'll probably move this to it's own class file.
 
 
 # The basic functionality
@@ -118,6 +119,12 @@ Okay you've made a contact. Enter the call in the call field. As you type it in,
 If you run rigctld or flrig on the computer that you are logging from, the radio will be polled for band/mode updates automatically. There is an indicator at the bottom of the logging window to indicate polling status. Dim if no connection or timeout, and highlighted if all okay.
 
 ![Alt text](https://github.com/mbridak/FieldDayLogger-Curses/raw/master/pics/rigctld.png)
+
+#### CW macros
+The macros are stored in the cwmacros_fd.txt file. This works in conjunction with [PyWinKeyerSerial](https://github.com/mbridak/PyWinKeyerSerial). I plan on adding support for cwdaemon, and I'll probably move this to it's own class file.
+The fields to edit are pretty straightforward. Each line has 3 fields separated by the pipe `|` character. The first is the Fkey being assigned. The second is a useless label. The third is the actual macro. the bits between the curly braces gets replaced by actual values
+
+`F1|Run CQ|cq fd {MYCALL} {MYCALL} k`
 
 #### Callsign lookups:
 An option of callsign lookups for gridsquare and op name is offered by one of three services: QRZ, HamDB or HamQTH. The use of these can be turned on or off by editing the JSON preference file. The lookup happens in it's own thread and is kicked off after the cursor leaves the call field. If the look up is successful, you'll see the status line at the bottom change giving you name, grid, bearing and distance to contact.

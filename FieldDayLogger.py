@@ -1304,7 +1304,13 @@ def statusline():
         f"{preference['power']}w ",
         curses.A_REVERSE,
     )
-    stdscr.addstr(23, 56, "Rig", highlightBonus(rigonline))
+    if rigonline:
+        stdscr.addstr(23, 58, "📻")
+    else:
+        stdscr.addstr(23, 58, "💢")
+
+    # if True:
+    #     stdscr.addstr(23, 55, "🌐")
 
     stdscr.move(y, x)
 

@@ -8,3 +8,7 @@ FieldDay\.adi
 Statistics\.txt
 .vscode/settings.json
 dist
+*.pyc
+README.md.backup
+debug
+debug.log

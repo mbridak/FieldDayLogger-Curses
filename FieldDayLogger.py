@@ -19,46 +19,77 @@ Contact_______: michael.bridak@gmail.com
 # pylint: disable=too-many-lines
 # pylint: disable=global-statement
 
+from math import radians, sin, cos, atan2, sqrt, asin, pi
 import curses
 import time
 import sys
 import os
 import sqlite3
 import socket
+from textwrap import shorten
+from pathlib import Path
 
-from sqlite3 import Error
 from curses.textpad import rectangle
 from curses import wrapper
 from datetime import datetime
 
+import threading
 import logging
-import json
+from json import loads, dumps
 import requests
+from cat_interface import CAT
+from lookup import HamDBlookup, HamQTH, QRZlookup
+from database import DataBase
 
-# Change to your API key and URL for CloudLog
+if Path("./debug").exists():
+    logging.basicConfig(
+        filename="debug.log",
+        filemode="w",
+        format="%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s",
+        datefmt="%H:%M:%S",
+        level=logging.DEBUG,
+    )
+    logging.debug("Debug started")
+else:
+    logging.basicConfig(level=logging.CRITICAL)
 
-cloudlogapi = "cl12345678901234567890"
-cloudlogurl = "http://www.yoururl.com/Cloudlog/index.php/api/qso"
+# If no preference file exists, one is created from this dictionary.
+preference = {
+    "mycall": "Call",
+    "myclass": "Class",
+    "mysection": "Section",
+    "power": "100",
+    "altpower": 0,
+    "usehamdb": 0,
+    "useqrz": 0,
+    "usehamqth": 0,
+    "lookupusername": "w1aw",
+    "lookuppassword": "secret",
+    "userigctld": 0,
+    "useflrig": 0,
+    "CAT_ip": "localhost",
+    "CAT_port": 4532,
+    "cloudlog": 0,
+    "cloudlogapi": "c01234567890123456789",
+    "cloudlogurl": "https://www.cloudlog.com/Cloudlog/index.php/api/",
+    "cloudlogstationid": "",
+    "usemarker": 0,
+    "markerfile": ".xplanet/markers/ham",
+}
 
-# change to your QRZ credentials.
-# If credentials fail the lookup will fallback to HamDB
-
-qrzurl = "https://xmldata.qrz.com/xml/134/"
-qrzname = ""
-qrzpass = ""
-
-
-# If you're going to have internet and you want to use the below services, change them to True
-
-useqrz = False
-usehamdb = False
-usecloudlog = False
-
-qrzsession = False
-cloudlogauthenticated = False
+contactlookup = {
+    "call": "",
+    "grid": "",
+    "bearing": "",
+    "name": "",
+    "nickname": "",
+    "error": "",
+    "distance": "",
+}
 
 stdscr = curses.initscr()
 height, width = stdscr.getmaxyx()
+
 if height < 24 or width < 80:
     print("Terminal size needs to be at least 80x24")
     curses.endwin()
@@ -66,14 +97,29 @@ if height < 24 or width < 80:
 qsoew = 0
 qso = []
 end_program = False
-
+cat_control = None
+look_up = None
+cloudlogauthenticated = False
 BackSpace = 263
 Escape = 27
 QuestionMark = 63
 EnterKey = 10
 Space = 32
 
-bands = ("160", "80", "40", "20", "15", "10", "6", "2", "222", "432", "SAT")
+# Since Field Day is not a 'contest', there are no band limitations
+bands = (
+    "160",
+    "80",
+    "40",
+    "20",
+    "15",
+    "10",
+    "6",
+    "2",
+    "222",
+    "432",
+    "SAT",
+)
 dfreq = {
     "160": "1.830",
     "80": "3.530",
@@ -90,15 +136,10 @@ dfreq = {
 }
 
 modes = ("PH", "CW", "DI")
-mycall = "CALL"
-myclass = "CLASS"
-mysection = "SECT"
-power = "0"
 band = "40"
 mode = "CW"
 qrp = False
 highpower = False
-bandmodemult = 0
 contacts = ""
 contactsOffset = 0
 logNumber = 0
@@ -111,8 +152,10 @@ editFieldFocus = 1
 hiscall = ""
 hissection = ""
 hisclass = ""
-
+mygrid = None
 database = "FieldDay.db"
+
+db = DataBase(database)
 
 wrkdsections = []
 scp = []
@@ -121,15 +164,7 @@ secName = {}
 secState = {}
 oldfreq = "0"
 oldmode = ""
-rigctrlhost = "127.0.0.1"
-rigctrlport = 4532
-rigctrlsocket = socket.socket()
-rigctrlsocket.settimeout(0.1)
-rigonline = True
-try:
-    rigctrlsocket.connect((rigctrlhost, rigctrlport))
-except:
-    rigonline = False
+rigonline = False
 
 
 def relpath(filename):
@@ -153,65 +188,129 @@ def has_internet():
         return False
 
 
-def qrzauth():
-    """Authorizes a QRZ session"""
-    global qrzsession
-    if useqrz and has_internet():
-        try:
-            payload = {"username": qrzname, "password": qrzpass}
-            r = requests.get(qrzurl, params=payload, timeout=1.0)
-            if r.status_code == 200 and r.text.find("<Key>") > 0:
-                qrzsession = r.text[r.text.find("<Key>") + 5 : r.text.find("</Key>")]
-            else:
-                qrzsession = False
-            if r.status_code == 200 and r.text.find("<Error>") > 0:
-                error_text = r.text[
-                    r.text.find("<Error>") + 7 : r.text.find("</Error>")
-                ]
-                logging.debug("QRZ Error: %s", error_text)
-        except requests.exceptions.RequestException as err:
-            logging.debug("****QRZ Error**** %s", err)
-    else:
-        qrzsession = False
+def clearcontactlookup():
+    """clearout the contact lookup"""
+    contactlookup["call"] = ""
+    contactlookup["grid"] = ""
+    contactlookup["name"] = ""
+    contactlookup["nickname"] = ""
+    contactlookup["error"] = ""
+    contactlookup["distance"] = ""
+    contactlookup["bearing"] = ""
 
 
-def qrzlookup(call):
+def lookupmygrid():
+    """lookup my own gridsquare"""
+    global mygrid
+    if look_up:
+        mygrid, _, _, _ = look_up.lookup(preference["mycall"])
+        logging.info("my grid: %s", mygrid)
+
+
+def lazy_lookup(acall: str):
+    """El Lookup De Lazy"""
+    if look_up:
+        if acall == contactlookup["call"]:
+            return
+
+        contactlookup["call"] = acall
+        (
+            contactlookup["grid"],
+            contactlookup["name"],
+            contactlookup["nickname"],
+            contactlookup["error"],
+        ) = look_up.lookup(acall)
+        if contactlookup["name"] == "NOT_FOUND NOT_FOUND":
+            contactlookup["name"] = "NOT_FOUND"
+        if contactlookup["grid"] == "NOT_FOUND":
+            contactlookup["grid"] = ""
+        if contactlookup["grid"] and mygrid:
+            contactlookup["distance"] = distance(mygrid, contactlookup["grid"])
+            contactlookup["bearing"] = bearing(mygrid, contactlookup["grid"])
+        logging.info("%s", contactlookup)
+
+
+def distance(grid1: str, grid2: str) -> float:
+    """
+    Takes two maidenhead gridsquares and returns the distance between the two in kilometers.
+    """
+    lat1, lon1 = gridtolatlon(grid1)
+    lat2, lon2 = gridtolatlon(grid2)
+    return round(haversine(lon1, lat1, lon2, lat2))
+
+
+def bearing(grid1: str, grid2: str) -> float:
+    """calculate bearing to contact"""
+    lat1, lon1 = gridtolatlon(grid1)
+    lat2, lon2 = gridtolatlon(grid2)
+    lat1 = radians(lat1)
+    lon1 = radians(lon1)
+    lat2 = radians(lat2)
+    lon2 = radians(lon2)
+    londelta = lon2 - lon1
+    why = sin(londelta) * cos(lat2)
+    exs = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(londelta)
+    brng = atan2(why, exs)
+    brng *= 180 / pi
+
+    if brng < 0:
+        brng += 360
+
+    return round(brng)
+
+
+def haversine(lon1, lat1, lon2, lat2):
+    """
+    Calculate the great circle distance in kilometers between two points
+    on the earth (specified in decimal degrees)
+    """
+    # convert degrees to radians
+    lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+
+    # haversine formula
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    aye = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+    cee = 2 * asin(sqrt(aye))
+    arrgh = 6372.8  # Radius of earth in kilometers.
+    return cee * arrgh
+
+
+def gridtolatlon(maiden):
+    """
+    Converts a maidenhead gridsquare to a latitude longitude pair.
+    """
+    maiden = str(maiden).strip().upper()
+
+    length = len(maiden)
+    if not 8 >= length >= 2 and length % 2 == 0:
+        return 0, 0
+
+    lon = (ord(maiden[0]) - 65) * 20 - 180
+    lat = (ord(maiden[1]) - 65) * 10 - 90
+
+    if length >= 4:
+        lon += (ord(maiden[2]) - 48) * 2
+        lat += ord(maiden[3]) - 48
+
+    if length >= 6:
+        lon += (ord(maiden[4]) - 65) / 12 + 1 / 24
+        lat += (ord(maiden[5]) - 65) / 24 + 1 / 48
+
+    if length >= 8:
+        lon += (ord(maiden[6])) * 5.0 / 600
+        lat += (ord(maiden[7])) * 2.5 / 600
+
+    return lat, lon
+
+
+def call_lookup(call):
     """Lookup call on QRZ"""
     grid = False
     name = False
     internet_good = has_internet()
-    try:
-        if qrzsession and useqrz and internet_good:
-            payload = {"s": qrzsession, "callsign": call}
-            r = requests.get(qrzurl, params=payload, timeout=3.0)
-            if not r.text.find("<Key>"):  # key expired get a new one
-                qrzauth()
-                if qrzsession:
-                    payload = {"s": qrzsession, "callsign": call}
-                    r = requests.get(qrzurl, params=payload, timeout=3.0)
-        elif usehamdb and internet_good:
-            r = requests.get(
-                f"http://api.hamdb.org/v1/{call}/xml/k6gtefdlogger", timeout=3.0
-            )
-        if r.status_code == 200:
-            if r.text.find("<Error>") > 0:
-                error_text = r.text[
-                    r.text.find("<Error>") + 7 : r.text.find("</Error>")
-                ]
-                logging.debug("QRZ/HamDB Error: %s", error_text)
-            if r.text.find("<grid>") > 0:
-                grid = r.text[r.text.find("<grid>") + 6 : r.text.find("</grid>")]
-            if r.text.find("<fname>") > 0:
-                name = r.text[r.text.find("<fname>") + 7 : r.text.find("</fname>")]
-            if r.text.find("<name>") > 0:
-                if not name:
-                    name = r.text[r.text.find("<name>") + 6 : r.text.find("</name>")]
-                else:
-                    name += (
-                        " " + r.text[r.text.find("<name>") + 6 : r.text.find("</name>")]
-                    )
-    except:
-        logging.debug("Something smells...")
+    if look_up and internet_good:
+        grid, name, _, _ = look_up.lookup(call)
     return grid, name
 
 
@@ -219,9 +318,9 @@ def cloudlogauth():
     """Authenticate cloudlog"""
     global cloudlogauthenticated
     cloudlogauthenticated = False
-    if usecloudlog:
+    if preference["cloudlog"]:
         try:
-            test = f"{cloudlogurl[:-3]}auth/{cloudlogapi}"
+            test = f"{preference['cloudlogurl'][:-3]}auth/{preference['cloudlogapi']}"
             r = requests.get(test, params={}, timeout=2.0)
             if r.status_code == 200 and r.text.find("<status>") > 0:
                 if (
@@ -276,131 +375,109 @@ def getmode(rigmode):
     return "DI"  # All else digital
 
 
-def pollRadio():
-    """Polls the radio for it's state"""
+def poll_radio():
+    """Polls the radio for band and mode"""
     global oldfreq, oldmode, rigonline
-    if rigonline:
-        try:
-            # rigctrlsocket.settimeout(0.5)
-            rigctrlsocket.send(b"f\n")
-            newfreq = rigctrlsocket.recv(1024).decode().strip()
-            rigctrlsocket.send(b"m\n")
-            newmode = rigctrlsocket.recv(1024).decode().strip().split()[0]
-            if newfreq != oldfreq or newmode != oldmode:
-                oldfreq = newfreq
-                oldmode = newmode
-                setband(str(getband(newfreq)))
-                setmode(str(getmode(newmode)))
-        except:
+    if cat_control:
+        newfreq = cat_control.get_vfo()
+        newmode = cat_control.get_mode()
+        if newfreq == "" or newmode == "":
             rigonline = False
-
-
-def checkRadio():
-    """checks if the radio is there."""
-    global rigctrlsocket, rigonline
-    rigctrlsocket = socket.socket()
-    rigctrlsocket.settimeout(0.1)
-    rigonline = True
-    try:
-        rigctrlsocket.connect((rigctrlhost, rigctrlport))
-    except:
-        rigonline = False
-
-
-def create_DB():
-    """create a database and table if it does not exist"""
-    try:
-        with sqlite3.connect(database) as conn:
-            cursor = conn.cursor()
-            sql_table = (
-                "CREATE TABLE IF NOT EXISTS contacts "
-                "(id INTEGER PRIMARY KEY, "
-                "callsign text NOT NULL, "
-                "class text NOT NULL, "
-                "section text NOT NULL, "
-                "date_time text NOT NULL, "
-                "band text NOT NULL, "
-                "mode text NOT NULL, "
-                "power INTEGER NOT NULL);"
-            )
-            cursor.execute(sql_table)
-            sql_table = (
-                "CREATE TABLE IF NOT EXISTS preferences "
-                "(id INTEGER, "
-                "mycallsign TEXT DEFAULT 'CALL', "
-                "myclass TEXT DEFAULT 'YOURCLASS', "
-                "mysection TEXT DEFAULT 'YOURSECTION', "
-                "power TEXT DEFAULT '0');"
-            )
-            cursor.execute(sql_table)
-            conn.commit()
-    except Error as err:
-        print(err)
+            return
+        rigonline = True
+        if newfreq != oldfreq or newmode != oldmode:
+            oldfreq = newfreq
+            oldmode = newmode
+            setband(str(getband(newfreq)))
+            setmode(str(getmode(newmode)))
 
 
 def readpreferences():
-    """Reads preferences"""
-    global mycall, myclass, mysection, power
+    """
+    Restore preferences if they exist, otherwise create some sane defaults.
+    """
+    global preference, cat_control, look_up
+    logging.info("readpreferences:")
     try:
-        with sqlite3.connect(database) as conn:
-            cursor = conn.cursor()
-            cursor.execute("select * from preferences where id = 1")
-            pref = cursor.fetchall()
-            if len(pref) > 0:
-                for x in pref:
-                    (
-                        _,
-                        mycall,
-                        myclass,
-                        mysection,
-                        power,
-                    ) = x
+        if os.path.exists("./fd_preferences.json"):
+            with open(
+                "./fd_preferences.json", "rt", encoding="utf-8"
+            ) as file_descriptor:
+                preference = loads(file_descriptor.read())
+                logging.info("reading: %s", preference)
+                preference["mycall"] = preference["mycall"].upper()
+                preference["myclass"] = preference["myclass"].upper()
+                preference["mysection"] = preference["mysection"].upper()
+        else:
+            writepreferences()
+            curses.endwin()
+            print(
+                "\n\nA basic configuration file has been written to: ./fd_preferences.json"
+            )
+            print("Please edit this file and relaunch the program.\n\n")
+            sys.exit()
+    except IOError as exception:
+        logging.critical("readpreferences: %s", exception)
+    logging.info(preference)
 
-            else:
-                sql = (
-                    "INSERT INTO preferences"
-                    "(id, mycallsign, myclass, mysection, power)"
-                    f"VALUES(1,'{mycall}','{myclass}','{mysection}','{power}'"
-                )
-                cursor.execute(sql)
-                conn.commit()
-    except Error as err:
-        logging.debug("readpreferences: %s", err)
+    cat_control = None
+    if preference["useflrig"]:
+        cat_control = CAT("flrig", preference["CAT_ip"], preference["CAT_port"])
+    if preference["userigctld"]:
+        cat_control = CAT("rigctld", preference["CAT_ip"], preference["CAT_port"])
+
+    if preference["useqrz"]:
+        look_up = QRZlookup(preference["lookupusername"], preference["lookuppassword"])
+        # self.callbook_icon.setText("QRZ")
+        if look_up.session:
+            pass
+            # self.callbook_icon.setStyleSheet("color: rgb(128, 128, 0);")
+        else:
+            pass
+            # self.callbook_icon.setStyleSheet("color: rgb(136, 138, 133);")
+
+    if preference["usehamdb"]:
+        look_up = HamDBlookup()
+        # self.callbook_icon.setText("HamDB")
+        # self.callbook_icon.setStyleSheet("color: rgb(128, 128, 0);")
+
+    if preference["usehamqth"]:
+        look_up = HamQTH(
+            preference["lookupusername"],
+            preference["lookuppassword"],
+        )
+        # self.callbook_icon.setText("HamQTH")
+        if look_up.session:
+            pass
+            # self.callbook_icon.setStyleSheet("color: rgb(128, 128, 0);")
+        else:
+            pass
+            # self.callbook_icon.setStyleSheet("color: rgb(136, 138, 133);")
+    if look_up and preference["mycall"] != "CALL":
+        _thethread = threading.Thread(
+            target=lookupmygrid,
+            daemon=True,
+        )
+        _thethread.start()
+    cloudlogauth()
 
 
 def writepreferences():
-    """writeout preferences"""
+    """
+    Write preferences to json file.
+    """
     try:
-        with sqlite3.connect(database) as conn:
-            sql = (
-                "UPDATE preferences SET "
-                f"mycallsign = '{mycall}', "
-                f"myclass = '{myclass}', "
-                f"mysection = '{mysection}', "
-                f"power = '{power}' "
-                "WHERE id = 1"
-            )
-            cursor = conn.cursor()
-            cursor.execute(sql)
-            conn.commit()
-    except Error as err:
-        logging.debug("writepreferences: %s", err)
+        logging.info("writepreferences:")
+        with open("./fd_preferences.json", "wt", encoding="utf-8") as file_descriptor:
+            file_descriptor.write(dumps(preference, indent=4))
+            logging.info("writing: %s", preference)
+    except IOError as exception:
+        logging.critical("writepreferences: %s", exception)
 
 
 def log_contact(logme):
     """Log a contact to the db"""
-    try:
-        with sqlite3.connect(database) as conn:
-            sql = (
-                "INSERT INTO contacts"
-                "(callsign, class, section, date_time, band, mode, power) "
-                "VALUES(?,?,?,datetime('now'),?,?,?)"
-            )
-            cur = conn.cursor()
-            cur.execute(sql, logme)
-            conn.commit()
-    except Error as err:
-        displayinfo(err)
+    db.log_contact(logme)
     workedSections()
     sections()
     stats()
@@ -410,14 +487,7 @@ def log_contact(logme):
 
 def delete_contact(contact):
     """delete contact from db"""
-    try:
-        with sqlite3.connect(database) as conn:
-            sql = f"delete from contacts where id={contact}"
-            cursor = conn.cursor()
-            cursor.execute(sql)
-            conn.commit()
-    except Error as err:
-        displayinfo(err)
+    db.delete_contact(contact)
     workedSections()
     sections()
     stats()
@@ -426,21 +496,7 @@ def delete_contact(contact):
 
 def change_contact(record):
     """Update contact in database"""
-    with sqlite3.connect(database) as conn:
-        sql = (
-            "update contacts set "
-            f"callsign = '{record[1]}', "
-            f"class = '{record[2]}', "
-            f"section = '{record[3]}', "
-            f"date_time = '{record[4]}', "
-            f"band = '{record[5]}', "
-            f"mode = '{record[6]}', "
-            f"power = '{record[7]}' "
-            f"where id={record[0]}"
-        )
-        cursor = conn.cursor()
-        cursor.execute(sql)
-        conn.commit()
+    db.change_contact(record)
 
 
 def read_sections():
@@ -484,9 +540,6 @@ def sectionCheck(sec):
     seccheckwindow.refresh(0, 0, 12, 1, 20, 33)
 
 
-read_sections()
-
-
 def readSCP():
     """read section check partial file"""
     global scp
@@ -494,9 +547,6 @@ def readSCP():
     scp = f.readlines()
     f.close()
     scp = list(map(lambda x: x.strip(), scp))
-
-
-readSCP()
 
 
 def superCheck(acall):
@@ -514,28 +564,17 @@ def dcontacts():
 
 def stats():
     """Calculates and displays stats."""
-    global bandmodemult
     y, x = stdscr.getyx()
-    with sqlite3.connect(database) as conn:
-        cursor = conn.cursor()
-        cursor.execute("select count(*) from contacts where mode = 'CW'")
-        cwcontacts = str(cursor.fetchone()[0])
-        cursor.execute("select count(*) from contacts where mode = 'PH'")
-        phonecontacts = str(cursor.fetchone()[0])
-        cursor.execute("select count(*) from contacts where mode = 'DI'")
-        digitalcontacts = str(cursor.fetchone()[0])
-        cursor.execute("select distinct band, mode from contacts")
-        bandmodemult = len(cursor.fetchall())
-        cursor.execute(
-            "SELECT count(*) FROM contacts where "
-            "datetime(date_time) >=datetime('now', '-15 Minutes')"
-        )
-        last15 = str(cursor.fetchone()[0])
-        cursor.execute(
-            "SELECT count(*) FROM contacts where "
-            "datetime(date_time) >=datetime('now', '-1 Hours')"
-        )
-        lasthour = str(cursor.fetchone()[0])
+    (
+        cwcontacts,
+        phonecontacts,
+        digitalcontacts,
+        _,
+        last15,
+        lasthour,
+        _,
+        _,
+    ) = db.stats()
     rectangle(stdscr, 0, 57, 7, 79)
     statslabel = "Score Stats"
     statslabeloffset = (25 / 2) - len(statslabel) / 2
@@ -557,29 +596,18 @@ def stats():
 
 def score():
     """Calculates the score"""
-    global bandmodemult
     qrpcheck()
-    with sqlite3.connect(database) as conn:
-        cursor = conn.cursor()
-        cursor.execute("select count(*) as cw from contacts where mode = 'CW'")
-        cw = str(cursor.fetchone()[0])
-        cursor.execute("select count(*) as ph from contacts where mode = 'PH'")
-        ph = str(cursor.fetchone()[0])
-        cursor.execute("select count(*) as di from contacts where mode = 'DI'")
-        di = str(cursor.fetchone()[0])
-        cursor.execute("select distinct band, mode from contacts")
-        bandmodemult = len(cursor.fetchall())
+    cw, ph, di = db.contacts_under_101watts()
     the_score = (int(cw) * 2) + int(ph) + (int(di) * 2)
-    if qrp:
-        the_score = the_score * 5
-    elif not highpower:
-        the_score = the_score * 2
-    return the_score
+    multiplier = 2
+    if qrp and bool(preference["altpower"]):
+        multiplier = 5
+    return the_score * multiplier
 
 
 def qrpcheck():
     """checks if we are qrp"""
-    global qrp, highpower
+    global qrp
     conn = sqlite3.connect(database)
     c = conn.cursor()
     c.execute("select count(*) as qrpc from contacts where mode = 'CW' and power > 5")
@@ -591,32 +619,19 @@ def qrpcheck():
     c.execute("select count(*) as qrpd from contacts where mode = 'DI' and power > 5")
     log = c.fetchall()
     qrpd = list(log[0])[0]
-    c.execute("select count(*) as highpower from contacts where power > 150")
-    log = c.fetchall()
-    highpower = bool(list(log[0])[0])
     conn.close()
     qrp = not qrpc + qrpp + qrpd
 
 
 def getBandModeTally(the_band, the_mode):
     """Returns the count and power of all contacts used on a band using one mode"""
-    with sqlite3.connect(database) as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "select count(*) as tally, MAX(power) as mpow from contacts "
-            f"where band = '{the_band}' AND mode ='{the_mode}'"
-        )
-        return cursor.fetchone()
+    return db.get_band_mode_tally(the_band, the_mode)
 
 
 def getbands():
     """Returns a list of bands used"""
     bandlist = []
-    conn = ""
-    conn = sqlite3.connect(database)
-    c = conn.cursor()
-    c.execute("select DISTINCT band from contacts")
-    x = c.fetchall()
+    x = db.get_bands()
     if x:
         for count in x:
             bandlist.append(count[0])
@@ -658,16 +673,24 @@ def getState(section):
 def adif():
     """Generates an ADIF file"""
     logname = "FieldDay.adi"
-    with sqlite3.connect(database) as conn:
-        cursor = conn.cursor()
-        cursor.execute("select * from contacts order by date_time ASC")
-        log = cursor.fetchall()
+    log = db.fetch_all_contacts_asc()
     grid = False
     with open(logname, "w", encoding="UTF-8") as file_descriptor:
         print("<ADIF_VER:5>2.2.0", end="\r\n", file=file_descriptor)
         print("<EOH>", end="\r\n", file=file_descriptor)
-        for counter, contact in enumerate(log):
-            _, opcall, opclass, opsection, the_datetime, the_band, the_mode, _ = contact
+        for contact in log:
+            (
+                _,
+                opcall,
+                opclass,
+                opsection,
+                the_datetime,
+                the_band,
+                the_mode,
+                _,
+                grid,
+                name,
+            ) = contact
             if the_mode == "DI":
                 the_mode = "FT8"
             if the_mode == "PH":
@@ -678,12 +701,6 @@ def adif():
                 rst = "59"
             loggeddate = the_datetime[:10]
             loggedtime = the_datetime[11:13] + the_datetime[14:16]
-            yy, xx = stdscr.getyx()
-            stdscr.move(15, 1)
-            stdscr.addstr(f"QRZ Gridsquare Lookup: {counter + 1}")
-            stdscr.move(yy, xx)
-            stdscr.refresh()
-            grid, name = qrzlookup(opcall)
             print(
                 f"<QSO_DATE:{len(''.join(loggeddate.split('-')))}:d>"
                 f"{''.join(loggeddate.split('-'))}",
@@ -710,7 +727,8 @@ def adif():
             print(f"<RST_SENT:{len(rst)}>{rst}", end="\r\n", file=file_descriptor)
             print(f"<RST_RCVD:{len(rst)}>{rst}", end="\r\n", file=file_descriptor)
             print(
-                f"<STX_STRING:{len(myclass + ' ' + mysection)}>{myclass} {mysection}",
+                f"<STX_STRING:{len(preference['myclass'] + ' ' + preference['mysection'])}>"
+                f"{preference['myclass']} {preference['mysection']}",
                 end="\r\n",
                 file=file_descriptor,
             )
@@ -732,13 +750,13 @@ def adif():
             state = getState(opsection)
             if state:
                 print(f"<STATE:{len(state)}>{state}", end="\r\n", file=file_descriptor)
-            if grid:
+            if grid and grid != "NOT_FOUND":
                 print(
                     f"<GRIDSQUARE:{len(grid)}>{grid}",
                     end="\r\n",
                     file=file_descriptor,
                 )
-            if name:
+            if name and name != "NOT_FOUND":
                 print(f"<NAME:{len(name)}>{name}", end="\r\n", file=file_descriptor)
             print("<COMMENT:14>ARRL-FIELD-DAY", end="\r\n", file=file_descriptor)
             print("<EOR>", end="\r\n", file=file_descriptor)
@@ -752,14 +770,20 @@ def adif():
 
 def postcloudlog():
     """posts a contacts to cloudlog."""
-    if not cloudlogapi or not cloudlogauthenticated:
+    if not preference["cloudlogapi"] or not cloudlogauthenticated:
         return
-    with sqlite3.connect(database) as conn:
-        cursor = conn.cursor()
-        cursor.execute("select * from contacts order by id DESC")
-        contact = cursor.fetchone()
-    _, opcall, opclass, opsection, the_datetime, the_band, the_mode, _ = contact
-    grid, name = qrzlookup(opcall)
+    (
+        _,
+        opcall,
+        opclass,
+        opsection,
+        the_datetime,
+        the_band,
+        the_mode,
+        _,
+        grid,
+        name,
+    ) = db.fetch_last_contact()
     if the_mode == "CW":
         rst = "599"
     else:
@@ -776,7 +800,8 @@ def postcloudlog():
         f"<FREQ:{len(dfreq[the_band])}>{dfreq[the_band]}"
         f"<RST_SENT:{len(rst)}>{rst}"
         f"<RST_RCVD:{len(rst)}>{rst}"
-        f"<STX_STRING:{len(myclass+mysection)+1}>{myclass} {mysection}"
+        f"<STX_STRING:{len(preference['myclass']+preference['mysection'])+1}>"
+        f"{preference['myclass']} {preference['mysection']}"
         f"<SRX_STRING:{len(opclass+opsection)+1}>{opclass} {opsection}"
         f"<ARRL_SECT:{len(opsection)}>{opsection}"
         f"<CLASS:{len(opclass)}>{opclass}"
@@ -790,30 +815,24 @@ def postcloudlog():
         adifq += f"<NAME:{len(name)}>{name}"
     adifq += "<COMMENT:14>ARRL-FIELD-DAY" "<EOR>"
 
-    payloadDict = {"key": cloudlogapi, "type": "adif", "string": adifq}
-    jsonData = json.dumps(payloadDict)
-    _ = requests.post(cloudlogurl, jsonData)
+    payloadDict = {"key": preference["cloudlogapi"], "type": "adif", "string": adifq}
+    jsonData = dumps(payloadDict)
+    _ = requests.post(preference["cloudlogurl"], jsonData)
 
 
 def cabrillo():
     """generates a cabrillo file"""
     logname = "FieldDay.log"
-    # bonuses = 0
-    with sqlite3.connect(database) as conn:
-        cursor = conn.cursor()
-        cursor.execute("select * from contacts order by date_time ASC")
-        log = cursor.fetchall()
+    log = db.fetch_all_contacts_under101_asc()
     catpower = ""
     if qrp:
         catpower = "QRP"
-    elif highpower:
-        catpower = "HIGH"
     else:
         catpower = "LOW"
     with open(logname, "w", encoding="UTF-8") as file_descriptor:
         print("START-OF-LOG: 3.0", end="\r\n", file=file_descriptor)
-        print(f"LOCATION: {mysection}", end="\r\n", file=file_descriptor)
-        print(f"CALLSIGN: {mycall}", end="\r\n", file=file_descriptor)
+        print(f"LOCATION: {preference['mysection']}", end="\r\n", file=file_descriptor)
+        print(f"CALLSIGN: {preference['mycall']}", end="\r\n", file=file_descriptor)
         print("CONTEST: ARRL-FIELD-DAY", end="\r\n", file=file_descriptor)
         print("CLUB:", end="\r\n", file=file_descriptor)
         print(
@@ -828,7 +847,7 @@ def cabrillo():
         )
         print(f"CATEGORY-POWER: {catpower}", end="\r\n", file=file_descriptor)
         print(f"CLAIMED-SCORE: {score()}", end="\r\n", file=file_descriptor)
-        print(f"OPERATORS: {mycall}", end="\r\n", file=file_descriptor)
+        print(f"OPERATORS: {preference['mycall']}", end="\r\n", file=file_descriptor)
         print("NAME: ", end="\r\n", file=file_descriptor)
         print("ADDRESS: ", end="\r\n", file=file_descriptor)
         print("ADDRESS-CITY: ", end="\r\n", file=file_descriptor)
@@ -838,15 +857,33 @@ def cabrillo():
         print("EMAIL: ", end="\r\n", file=file_descriptor)
         print("CREATED-BY: K6GTE Field Day Logger", end="\r\n", file=file_descriptor)
         for contact in log:
-            _, opcall, opclass, opsection, the_datetime, the_band, the_mode, _ = contact
+            (
+                _,
+                opcall,
+                opclass,
+                opsection,
+                the_datetime,
+                the_band,
+                the_mode,
+                _,
+                _,
+                _,
+            ) = contact
             if the_mode == "DI":
                 the_mode = "DG"
             loggeddate = the_datetime[:10]
             loggedtime = the_datetime[11:13] + the_datetime[14:16]
             print(
-                f"QSO: {the_band.rjust(3)}M {the_mode} {loggeddate} {loggedtime} "
-                f"{mycall.ljust(14)} {myclass.ljust(3)} {mysection.ljust(5)} "
-                f"{opcall.ljust(14)} {opclass.ljust(3)} {opsection}",
+                f"QSO: {the_band.rjust(3)}M "
+                f"{the_mode} "
+                f"{loggeddate} "
+                f"{loggedtime} "
+                f"{preference['mycall'].ljust(14)} "
+                f"{preference['myclass'].ljust(3)} "
+                f"{preference['mysection'].ljust(5)} "
+                f"{opcall.ljust(14)} "
+                f"{opclass.ljust(3)} "
+                f"{opsection}",
                 end="\r\n",
                 file=file_descriptor,
             )
@@ -895,6 +932,8 @@ def logwindow():
             the_band,
             the_mode,
             the_power,
+            _,
+            _,
         ) = x
         logid = zerofiller[: -len(str(logid))] + str(logid)
         opcall = opcall + callfiller[: -len(opcall)]
@@ -950,19 +989,17 @@ def logdown():
 
 def dupCheck(acall):
     """checks for duplicates"""
+    if not contactlookup["call"] and look_up:
+        _thethread = threading.Thread(
+            target=lazy_lookup,
+            args=(acall,),
+            daemon=True,
+        )
+        _thethread.start()
     oy, ox = stdscr.getyx()
     scpwindow = curses.newpad(1000, 33)
     rectangle(stdscr, 11, 0, 21, 34)
-
-    with sqlite3.connect(database) as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            "select callsign, class, section, band, mode "
-            f"from contacts where callsign like '{acall}' "
-            "order by band"
-        )
-        log = cursor.fetchall()
-
+    log = db.dup_check(acall)
     counter = 0
     for contact in log:
         decorate = ""
@@ -1163,6 +1200,7 @@ def entry():
 def clearentry():
     """Clear text entry fields"""
     global inputFieldFocus, hiscall, hissection, hisclass, kbuf
+    clearcontactlookup()
     hiscall = ""
     hissection = ""
     hisclass = ""
@@ -1189,24 +1227,43 @@ def statusline():
         stdscr.addstr(22, 59, f"Local: {now}")
         stdscr.addstr(23, 61, f"UTC: {utcnow}")
     except curses.error as err:
-        logging.debug("statusline: %s", err)
+        if err != "addwstr() returned ERR":
+            pass
+            # logging.debug("statusline: %s", err)
+
+    if contactlookup["call"]:
+        stdscr.addstr(
+            22,
+            1,
+            f"{contactlookup['call']}: {shorten(contactlookup['name'], width=25, placeholder='')} "
+            f"Grid: {contactlookup['grid']} "
+            f"Dir: {contactlookup['bearing']} "
+            f"Dis: {contactlookup['distance']} ",
+        )
+    else:
+        stdscr.addstr(22, 1, " " * 58)
 
     stdscr.addstr(23, 1, "Band:        Mode:")
     stdscr.addstr(23, 7, f"  {band}  ", curses.A_REVERSE)
     stdscr.addstr(23, 20, f"  {mode}  ", curses.A_REVERSE)
     stdscr.addstr(23, 27, "                            ")
     stdscr.addstr(
-        23, 27, f" {mycall}|{myclass}|{mysection}|{power}w ", curses.A_REVERSE
+        23,
+        27,
+        f" {preference['mycall']}|"
+        f"{preference['myclass']}|"
+        f"{preference['mysection']}|"
+        f"{preference['power']}w ",
+        curses.A_REVERSE,
     )
-    stdscr.addstr(23, 50, "Rig", highlightBonus(rigonline))
+    stdscr.addstr(23, 56, "Rig", highlightBonus(rigonline))
 
     stdscr.move(y, x)
 
 
 def setpower(p):
     """Change power in watts and save as a preference"""
-    global power
-    power = p
+    preference["power"] = p
     writepreferences()
     statusline()
 
@@ -1226,25 +1283,28 @@ def setmode(m):
 
 
 def setcallsign(c):
-    """Sets you callsign for logging and writes preference."""
-    global mycall
-    mycall = str(c)
+    """Sets your callsign for logging and writes preference."""
+    preference["mycall"] = str(c)
+    if preference["mycall"] != "":
+        _thethread = threading.Thread(
+            target=lookupmygrid,
+            daemon=True,
+        )
+        _thethread.start()
     writepreferences()
     statusline()
 
 
 def setclass(c):
     """Sets your class for logging and writes preference."""
-    global myclass
-    myclass = str(c)
+    preference["myclass"] = str(c)
     writepreferences()
     statusline()
 
 
 def setsection(s):
     """Stores your section for logging and writes preference."""
-    global mysection
-    mysection = str(s)
+    preference["mysection"] = str(s)
     writepreferences()
     statusline()
 
@@ -1405,7 +1465,16 @@ def proc_key(key):
             return
         if hiscall == "" or hisclass == "" or hissection == "":
             return
-        contact = (hiscall, hisclass, hissection, band, mode, int(power))
+        contact = (
+            hiscall,
+            hisclass,
+            hissection,
+            band,
+            mode,
+            int(preference["power"]),
+            contactlookup["grid"],
+            contactlookup["name"],
+        )
         log_contact(contact)
         clearentry()
         return
@@ -1444,7 +1513,7 @@ def edit_key(key):
         return
     elif key == BackSpace:
         if qso[editFieldFocus] != "":
-            qso[editFieldFocus] = qso[editFieldFocus][0:-1]
+            qso[editFieldFocus] = str(qso[editFieldFocus])[0:-1]
         displayEditField(editFieldFocus)
         return
     elif key == EnterKey:
@@ -1485,14 +1554,14 @@ def edit_key(key):
         if editFieldFocus > 7:
             editFieldFocus = 1
         qsoew.move(editFieldFocus, 10)  # move focus to call field
-        qsoew.addstr(qso[editFieldFocus])
+        qsoew.addstr(str(qso[editFieldFocus]))
         return
     elif key == 259:  # arrow up
         editFieldFocus -= 1
         if editFieldFocus < 1:
             editFieldFocus = 7
         qsoew.move(editFieldFocus, 10)  # move focus to call field
-        qsoew.addstr(qso[editFieldFocus])
+        qsoew.addstr(str(qso[editFieldFocus]))
         return
     elif curses.ascii.isascii(key):
         if len(qso[editFieldFocus]) < maxEditFieldLength[editFieldFocus]:
@@ -1570,14 +1639,11 @@ def EditClickedQSO(line):
 def editQSO(q):
     """Edit contact"""
     global qsoew, qso, end_program
-    with sqlite3.connect(database) as conn:
-        cursor = conn.cursor()
-        cursor.execute(f"select * from contacts where id={q}")
-        log = cursor.fetchone()
+    log = db.contact_by_id(q)
     if not log:
         return
-    qso = ["", "", "", "", "", "", "", ""]
-    qso[0], qso[1], qso[2], qso[3], qso[4], qso[5], qso[6], qso[7] = log
+    qso = ["", "", "", "", "", "", "", "", "", ""]
+    qso[0], qso[1], qso[2], qso[3], qso[4], qso[5], qso[6], qso[7], qso[8], qso[9] = log
     qsoew = curses.newwin(10, 40, 6, 10)
     qsoew.keypad(True)
     qsoew.nodelay(True)
@@ -1607,7 +1673,8 @@ def editQSO(q):
 
 def main(s):  # pylint: disable=unused-argument
     """Main entry point for the program"""
-    create_DB()
+    read_sections()
+    readSCP()
     curses.start_color()
     curses.use_default_colors()
     if curses.can_change_color():
@@ -1631,7 +1698,6 @@ def main(s):  # pylint: disable=unused-argument
     readpreferences()
     stats()
     displayHelp()
-    qrzauth()
     cloudlogauth()
     stdscr.refresh()
     stdscr.move(9, 1)
@@ -1657,10 +1723,7 @@ def main(s):  # pylint: disable=unused-argument
             time.sleep(0.1)
         if end_program:
             break
-        if rigonline is False:
-            checkRadio()
-        else:
-            pollRadio()
+        poll_radio()
 
 
 wrapper(main)

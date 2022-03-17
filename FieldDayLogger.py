@@ -28,11 +28,11 @@ import sqlite3
 import socket
 from textwrap import shorten
 from pathlib import Path
-
+from shutil import copyfile
 from curses.textpad import rectangle
 from curses import wrapper
 from datetime import datetime
-
+from xmlrpc.client import ServerProxy, Error
 import threading
 import logging
 from json import loads, dumps
@@ -153,8 +153,9 @@ hiscall = ""
 hissection = ""
 hisclass = ""
 mygrid = None
+fkeys = dict()
+keyerserver = "http://localhost:8000"
 database = "FieldDay.db"
-
 db = DataBase(database)
 
 wrkdsections = []
@@ -390,6 +391,50 @@ def poll_radio():
             oldmode = newmode
             setband(str(getband(newfreq)))
             setmode(str(getmode(newmode)))
+
+
+def sendcw(texttosend):
+    """sends cw to k1el"""
+    logging.info("sendcw: %s", texttosend)
+    with ServerProxy(keyerserver) as proxy:
+        try:
+            proxy.k1elsendstring(texttosend)
+        except Error as exception:
+            logging.info("%s, xmlrpc error: %s", keyerserver, exception)
+        except ConnectionRefusedError:
+            logging.info("%s, xmlrpc Connection Refused", keyerserver)
+
+
+def read_cw_macros():
+    """
+    Reads in the CW macros, firsts it checks to see if the file exists. If it does not,
+    and this has been packaged with pyinstaller it will copy the default file from the
+    temp directory this is running from... In theory.
+    """
+    if (
+        getattr(sys, "frozen", False)
+        and hasattr(sys, "_MEIPASS")
+        and not Path("./cwmacros_fd.txt").exists()
+    ):
+        logging.info("read_cw_macros: copying default macro file.")
+        copyfile(relpath("cwmacros_fd.txt"), "./cwmacros_fd.txt")
+    with open("./cwmacros_fd.txt", "r", encoding="utf-8") as file_descriptor:
+        for line in file_descriptor:
+            try:
+                fkey, buttonname, cwtext = line.split("|")
+                fkeys[fkey.strip()] = (buttonname.strip(), cwtext.strip())
+            except ValueError as err:
+                logging.info("read_cw_macros: %s", err)
+
+
+def process_macro(macro):
+    """process string substitutions"""
+    macro = macro.upper()
+    macro = macro.replace("{MYCALL}", preference["mycall"])
+    macro = macro.replace("{MYCLASS}", preference["myclass"])
+    macro = macro.replace("{MYSECT}", preference["mysection"])
+    macro = macro.replace("{HISCALL}", hiscall)
+    return macro
 
 
 def readpreferences():
@@ -989,6 +1034,7 @@ def logdown():
 
 def dupCheck(acall):
     """checks for duplicates"""
+    global hisclass, hissection
     if not contactlookup["call"] and look_up:
         _thethread = threading.Thread(
             target=lazy_lookup,
@@ -1003,7 +1049,7 @@ def dupCheck(acall):
     counter = 0
     for contact in log:
         decorate = ""
-        hiscallsign, _, _, hisband, hismode = contact
+        hiscallsign, hisclass, hissection, hisband, hismode = contact
         if hisband == band and hismode == mode:
             decorate = curses.color_pair(1)
             curses.flash()
@@ -1012,6 +1058,8 @@ def dupCheck(acall):
             decorate = curses.A_NORMAL
         scpwindow.addstr(counter, 0, f"{hiscallsign}: {hisband} {hismode}", decorate)
         counter = counter + 1
+        stdscr.addstr(9, 20, hisclass.ljust(5))
+        stdscr.addstr(9, 27, hissection.ljust(7))
     stdscr.refresh()
     scpwindow.refresh(0, 0, 12, 1, 20, 33)
     stdscr.move(oy, ox)
@@ -1491,6 +1539,30 @@ def proc_key(key):
         logpagedown()
     elif key == 339:  # page up
         logpageup()
+    elif key == curses.KEY_F1:
+        sendcw(process_macro(fkeys["F1"][1]))
+    elif key == curses.KEY_F2:
+        sendcw(process_macro(fkeys["F2"][1]))
+    elif key == curses.KEY_F3:
+        sendcw(process_macro(fkeys["F3"][1]))
+    elif key == curses.KEY_F4:
+        sendcw(process_macro(fkeys["F4"][1]))
+    elif key == curses.KEY_F5:
+        sendcw(process_macro(fkeys["F5"][1]))
+    elif key == curses.KEY_F6:
+        sendcw(process_macro(fkeys["F6"][1]))
+    elif key == curses.KEY_F7:
+        sendcw(process_macro(fkeys["F7"][1]))
+    elif key == curses.KEY_F8:
+        sendcw(process_macro(fkeys["F8"][1]))
+    elif key == curses.KEY_F9:
+        sendcw(process_macro(fkeys["F9"][1]))
+    elif key == curses.KEY_F10:
+        sendcw(process_macro(fkeys["F10"][1]))
+    elif key == curses.KEY_F11:
+        sendcw(process_macro(fkeys["F11"][1]))
+    elif key == curses.KEY_F12:
+        sendcw(process_macro(fkeys["F12"][1]))
     elif curses.ascii.isascii(key):
         if len(kbuf) < maxFieldLength[inputFieldFocus]:
             kbuf = kbuf.upper() + chr(key).upper()
@@ -1675,6 +1747,7 @@ def main(s):  # pylint: disable=unused-argument
     """Main entry point for the program"""
     read_sections()
     readSCP()
+    read_cw_macros()
     curses.start_color()
     curses.use_default_colors()
     if curses.can_change_color():

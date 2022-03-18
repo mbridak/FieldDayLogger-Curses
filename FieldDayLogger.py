@@ -32,7 +32,6 @@ from shutil import copyfile
 from curses.textpad import rectangle
 from curses import wrapper
 from datetime import datetime
-from xmlrpc.client import ServerProxy, Error
 import threading
 import logging
 from json import loads, dumps
@@ -40,6 +39,8 @@ import requests
 from cat_interface import CAT
 from lookup import HamDBlookup, HamQTH, QRZlookup
 from database import DataBase
+from cwinterface import CW
+
 
 if Path("./debug").exists():
     logging.basicConfig(
@@ -75,6 +76,9 @@ preference = {
     "cloudlogstationid": "",
     "usemarker": 0,
     "markerfile": ".xplanet/markers/ham",
+    "cwtype": 0,
+    "CW_IP": "localhost",
+    "CW_port": 6789,
 }
 
 contactlookup = {
@@ -153,10 +157,10 @@ hiscall = ""
 hissection = ""
 hisclass = ""
 mygrid = None
-fkeys = dict()
-keyerserver = "http://localhost:8000"
 database = "FieldDay.db"
-db = DataBase(database)
+db = DataBase("FieldDay.db")
+fkeys = dict()
+cw = None
 
 wrkdsections = []
 scp = []
@@ -393,18 +397,6 @@ def poll_radio():
             setmode(str(getmode(newmode)))
 
 
-def sendcw(texttosend):
-    """sends cw to k1el"""
-    logging.info("sendcw: %s", texttosend)
-    with ServerProxy(keyerserver) as proxy:
-        try:
-            proxy.k1elsendstring(texttosend)
-        except Error as exception:
-            logging.info("%s, xmlrpc error: %s", keyerserver, exception)
-        except ConnectionRefusedError:
-            logging.info("%s, xmlrpc Connection Refused", keyerserver)
-
-
 def read_cw_macros():
     """
     Reads in the CW macros, firsts it checks to see if the file exists. If it does not,
@@ -437,11 +429,40 @@ def process_macro(macro):
     return macro
 
 
+def check_function_keys(key):
+    """Sends a CW macro if a function key was pressed."""
+    if cw:
+        if key == curses.KEY_F1 and "F1" in fkeys:
+            cw.sendcw(process_macro(fkeys["F1"][1]))
+        elif key == curses.KEY_F2 and "F2" in fkeys:
+            cw.sendcw(process_macro(fkeys["F2"][1]))
+        elif key == curses.KEY_F3 and "F3" in fkeys:
+            cw.sendcw(process_macro(fkeys["F3"][1]))
+        elif key == curses.KEY_F4 and "F4" in fkeys:
+            cw.sendcw(process_macro(fkeys["F4"][1]))
+        elif key == curses.KEY_F5 and "F5" in fkeys:
+            cw.sendcw(process_macro(fkeys["F5"][1]))
+        elif key == curses.KEY_F6 and "F6" in fkeys:
+            cw.sendcw(process_macro(fkeys["F6"][1]))
+        elif key == curses.KEY_F7 and "F7" in fkeys:
+            cw.sendcw(process_macro(fkeys["F7"][1]))
+        elif key == curses.KEY_F8 and "F8" in fkeys:
+            cw.sendcw(process_macro(fkeys["F8"][1]))
+        elif key == curses.KEY_F9 and "F9" in fkeys:
+            cw.sendcw(process_macro(fkeys["F9"][1]))
+        elif key == curses.KEY_F10 and "F10" in fkeys:
+            cw.sendcw(process_macro(fkeys["F10"][1]))
+        elif key == curses.KEY_F11 and "F11" in fkeys:
+            cw.sendcw(process_macro(fkeys["F11"][1]))
+        elif key == curses.KEY_F12 and "F12" in fkeys:
+            cw.sendcw(process_macro(fkeys["F12"][1]))
+
+
 def readpreferences():
     """
     Restore preferences if they exist, otherwise create some sane defaults.
     """
-    global preference, cat_control, look_up
+    global preference, cat_control, look_up, cw
     logging.info("readpreferences:")
     try:
         if os.path.exists("./fd_preferences.json"):
@@ -470,6 +491,10 @@ def readpreferences():
         cat_control = CAT("flrig", preference["CAT_ip"], preference["CAT_port"])
     if preference["userigctld"]:
         cat_control = CAT("rigctld", preference["CAT_ip"], preference["CAT_port"])
+
+    cw = None
+    if preference["cwtype"]:
+        cw = CW(preference["cwtype"], preference["CW_IP"], preference["CW_port"])
 
     if preference["useqrz"]:
         look_up = QRZlookup(preference["lookupusername"], preference["lookuppassword"])
@@ -642,8 +667,8 @@ def stats():
 def score():
     """Calculates the score"""
     qrpcheck()
-    cw, ph, di = db.contacts_under_101watts()
-    the_score = (int(cw) * 2) + int(ph) + (int(di) * 2)
+    cdub, ph, di = db.contacts_under_101watts()
+    the_score = (int(cdub) * 2) + int(ph) + (int(di) * 2)
     multiplier = 2
     if qrp and bool(preference["altpower"]):
         multiplier = 5
@@ -1545,30 +1570,6 @@ def proc_key(key):
         logpagedown()
     elif key == 339:  # page up
         logpageup()
-    elif key == curses.KEY_F1:
-        sendcw(process_macro(fkeys["F1"][1]))
-    elif key == curses.KEY_F2:
-        sendcw(process_macro(fkeys["F2"][1]))
-    elif key == curses.KEY_F3:
-        sendcw(process_macro(fkeys["F3"][1]))
-    elif key == curses.KEY_F4:
-        sendcw(process_macro(fkeys["F4"][1]))
-    elif key == curses.KEY_F5:
-        sendcw(process_macro(fkeys["F5"][1]))
-    elif key == curses.KEY_F6:
-        sendcw(process_macro(fkeys["F6"][1]))
-    elif key == curses.KEY_F7:
-        sendcw(process_macro(fkeys["F7"][1]))
-    elif key == curses.KEY_F8:
-        sendcw(process_macro(fkeys["F8"][1]))
-    elif key == curses.KEY_F9:
-        sendcw(process_macro(fkeys["F9"][1]))
-    elif key == curses.KEY_F10:
-        sendcw(process_macro(fkeys["F10"][1]))
-    elif key == curses.KEY_F11:
-        sendcw(process_macro(fkeys["F11"][1]))
-    elif key == curses.KEY_F12:
-        sendcw(process_macro(fkeys["F12"][1]))
     elif curses.ascii.isascii(key):
         if len(kbuf) < maxFieldLength[inputFieldFocus]:
             kbuf = kbuf.upper() + chr(key).upper()
@@ -1577,6 +1578,7 @@ def proc_key(key):
             if inputFieldFocus == 2 and len(kbuf) > 0:
                 sectionCheck(kbuf)
     displayInputField(inputFieldFocus)
+    check_function_keys(key)
 
 
 def edit_key(key):

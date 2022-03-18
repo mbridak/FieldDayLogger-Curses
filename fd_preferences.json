@@ -1,7 +1,7 @@
 {
-    "mycall": "CALL",
-    "myclass": "CLASS",
-    "mysection": "SECT",
+    "mycall": "Call",
+    "myclass": "Class",
+    "mysection": "Section",
     "power": "100",
     "altpower": 0,
     "usehamdb": 0,
@@ -18,5 +18,8 @@
     "cloudlogurl": "https://www.cloudlog.com/Cloudlog/index.php/api/",
     "cloudlogstationid": "",
     "usemarker": 0,
-    "markerfile": ".xplanet/markers/ham"
+    "markerfile": ".xplanet/markers/ham",
+    "cwtype": 0,
+    "CW_IP": "localhost",
+    "CW_port": 6789
 }

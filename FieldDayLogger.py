@@ -167,7 +167,7 @@ secName = {}
 secState = {}
 oldfreq = "0"
 oldmode = ""
-rigonline = False
+rigonline = None
 
 
 def relpath(filename):
@@ -393,6 +393,8 @@ def poll_radio():
             oldmode = newmode
             setband(str(getband(newfreq)))
             setmode(str(getmode(newmode)))
+    else:
+        rigonline = None
 
 
 def read_cw_macros():
@@ -1301,9 +1303,11 @@ def statusline():
         f"{preference['power']}w ",
         curses.A_REVERSE,
     )
-    if rigonline:
+    if rigonline is None:
+        stdscr.addstr(23, 58, "  ")
+    if rigonline is True:
         stdscr.addstr(23, 58, "📻")
-    else:
+    if rigonline is False:
         stdscr.addstr(23, 58, "💢")
 
     # if True:

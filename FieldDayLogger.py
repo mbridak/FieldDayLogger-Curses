@@ -664,19 +664,14 @@ def stats():
 
 def score():
     """Calculates the score"""
-    qrpcheck()
+    global qrp
+    qrp, _ = db.qrp_check()
     cdub, ph, di = db.contacts_under_101watts()
     the_score = (int(cdub) * 2) + int(ph) + (int(di) * 2)
     multiplier = 2
     if qrp and bool(preference["altpower"]):
         multiplier = 5
     return the_score * multiplier
-
-
-def qrpcheck():
-    """checks if we are qrp"""
-    global qrp
-    qrp, _ = db.qrp_check()
 
 
 def getBandModeTally(the_band, the_mode):

@@ -19,7 +19,7 @@ This is a simple logger meant for single op. It's not usable for clubs, there is
 * Moved preferences out of the main DB, and into a JSON file.
 * ReWorked scoring since rule changes for 2022.
 * Moved call and grid lookups to a thread.
-* Added CW macros. The macros are stored in cwmacros_fd.txt. This works in conjunction with [PyWinKeyerSerial](https://github.com/mbridak/PyWinKeyerSerial). I plan on adding support for cwdaemon, and I'll probably move this to it's own class file.
+* Added CW macros. The macros are stored in cwmacros_fd.txt. This works in conjunction with [PyWinKeyerSerial](https://github.com/mbridak/PyWinKeyerSerial), [cwdaemon](https://github.com/acerion/cwdaemon) and [winkeydaemon](https://github.com/N0NB/winkeydaemon). See Initial Setup section for settings.
 
 
 # The basic functionality
@@ -64,16 +64,17 @@ Here's an example of it's contents:
 ```
 
 {
-    "mycall": "K6GTE",
-    "myclass": "1B",
-    "mysection": "ORG",
-    "power": "5",
+    "mycall": "Call",
+    "myclass": "Class",
+    "mysection": "Section",
+    "power": "100",
+    "altpower": 0,
     "usehamdb": 0,
-    "useqrz": 1,
+    "useqrz": 0,
     "usehamqth": 0,
-    "lookupusername": "K6GTE",
-    "lookuppassword": "mysecretpassword",
-    "userigctld": 1,
+    "lookupusername": "w1aw",
+    "lookuppassword": "secret",
+    "userigctld": 0,
     "useflrig": 0,
     "CAT_ip": "localhost",
     "CAT_port": 4532,
@@ -82,7 +83,10 @@ Here's an example of it's contents:
     "cloudlogurl": "https://www.cloudlog.com/Cloudlog/index.php/api/",
     "cloudlogstationid": "",
     "usemarker": 0,
-    "markerfile": ".xplanet/markers/ham"
+    "markerfile": ".xplanet/markers/ham",
+    "cwtype": 0,
+    "CW_IP": "localhost",
+    "CW_port": 6789
 }
 
 ```
@@ -110,6 +114,16 @@ This block:
 
 Says, of the two available CAT interface options, flrig or rigctld, I want to use rigctld. And it can be found on localhost:4532.
 
+This block:
+
+```
+    "cwtype": 0,
+    "CW_IP": "localhost",
+    "CW_port": 6789
+```
+
+Is for the type of CW backend you are using. For cwdaemon or winkeydaemon set this to 1. Set this to 2 for PyWinkeyer. Leave as 0 if you are not using one. The CW_port can be set to 6789 for cwdaemon and winkeydaemon, 8000 for PyWinkeyer.
+
 ## Logging
 Okay you've made a contact. Enter the call in the call field. As you type it in, it will do a super check partial (see below). Press TAB or SPACE to advance to the next field. Once the call is complete it will do a DUP check (see below). It will try and Autofill the next fields (see below). When entering the section, it will do a section partial check (see below). Press the ENTER key to submit the Q to the log. It can send contact to Cloudlog (see below). If it's a busted call or a dup, press the ESC key to clear all inputs and start again.
 
@@ -121,8 +135,7 @@ If you run rigctld or flrig on the computer that you are logging from, the radio
 ![Alt text](https://github.com/mbridak/FieldDayLogger-Curses/raw/master/pics/rigctld.png)
 
 #### CW macros
-The macros are stored in the cwmacros_fd.txt file. This works in conjunction with [PyWinKeyerSerial](https://github.com/mbridak/PyWinKeyerSerial). I plan on adding support for cwdaemon, and I'll probably move this to it's own class file.
-The fields to edit are pretty straightforward. Each line has 3 fields separated by the pipe `|` character. The first is the Fkey being assigned. The second is a useless label. The third is the actual macro. the bits between the curly braces gets replaced by actual values
+The macros are stored in the cwmacros_fd.txt file. The fields to edit are pretty straightforward. Each line has 3 fields separated by the pipe `|` character. The first is the Fkey being assigned. The second is a useless label. The third is the actual macro. the bits between the curly braces gets replaced by actual values
 
 `F1|Run CQ|cq fd {MYCALL} {MYCALL} k`
 

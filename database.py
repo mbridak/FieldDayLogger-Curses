@@ -69,15 +69,15 @@ class DataBase:
 
     def change_contact(self, qso):
         """Update an existing contact."""
-        print(qso)
+        logging.info("change_contact: %s", qso)
         try:
             with sqlite3.connect(self.database) as conn:
                 sql = (
-                    f"update contacts set callsign = '{qso[0]}', class = '{qso[1]}', "
-                    f"section = '{qso[2]}', date_time = '{qso[3]}', band = '{qso[4]}', "
-                    f"mode = '{qso[5]}', power = '{qso[6]}'  where id='{qso[7]}'"
+                    f"update contacts set callsign = '{qso[1]}', class = '{qso[2]}', "
+                    f"section = '{qso[3]}', date_time = '{qso[4]}', band = '{qso[5]}', "
+                    f"mode = '{qso[6]}', power = '{qso[7]}'  where id='{qso[0]}'"
                 )
-                print(sql)
+                logging.info("change_contact: %s", sql)
                 cur = conn.cursor()
                 cur.execute(sql)
                 conn.commit()
@@ -109,28 +109,20 @@ class DataBase:
                 "where datetime(date_time) >=datetime('now', '-1 Hours')"
             )
             lasthour = str(cursor.fetchone()[0])
-            cursor.execute(
-                "select count(*) as qrpc from contacts where mode = 'CW' and power > 5"
+            qrp, highpower = self.qrp_check()
+            logging.info(
+                "DataBase stats: %s",
+                (
+                    cwcontacts,
+                    phonecontacts,
+                    digitalcontacts,
+                    bandmodemult,
+                    last15,
+                    lasthour,
+                    highpower,
+                    qrp,
+                ),
             )
-            log = cursor.fetchall()
-            qrpc = list(log[0])[0]
-            cursor.execute(
-                "select count(*) as qrpp from contacts where mode = 'PH' and power > 10"
-            )
-            log = cursor.fetchall()
-            qrpp = list(log[0])[0]
-            cursor.execute(
-                "select count(*) as qrpd from contacts where mode = 'DI' and power > 10"
-            )
-            log = cursor.fetchall()
-            qrpd = list(log[0])[0]
-            cursor.execute(
-                "select count(*) as highpower from contacts where power > 100"
-            )
-            log = cursor.fetchall()
-            highpower = bool(list(log[0])[0])
-            qrp = not qrpc + qrpp + qrpd
-
             return (
                 cwcontacts,
                 phonecontacts,
@@ -174,6 +166,7 @@ class DataBase:
                 )
                 log = cursor.fetchall()
                 qrpc = list(log[0])[0]
+
                 cursor.execute(
                     "select count(*) as qrpp from contacts where mode = 'PH' and power > 10"
                 )
@@ -185,13 +178,13 @@ class DataBase:
                 log = cursor.fetchall()
                 qrpd = list(log[0])[0]
                 cursor.execute(
-                    "select count(*) as highpower from contacts where power > 100"
+                    "select count(*) as highpower from contacts where power > 101"
                 )
                 log = cursor.fetchall()
                 highpower = bool(list(log[0])[0])
                 qrp = not qrpc + qrpp + qrpd
         except sqlite3.Error as exception:
-            logging.critical("qrpcheck: %s", exception)
+            logging.info("qrpcheck: %s", exception)
             return 0, 0
         return qrp, highpower
 
@@ -264,10 +257,14 @@ class DataBase:
 
     def contact_by_id(self, record) -> tuple:
         """returns a contact matching an id"""
-        with sqlite3.connect(self.database) as conn:
-            cursor = conn.cursor()
-            cursor.execute("select * from contacts where id=" + record)
-            return cursor.fetchall()
+        logging.info("contact_by_id: record: %s", record)
+        try:
+            with sqlite3.connect(self.database) as conn:
+                cursor = conn.cursor()
+                cursor.execute("select * from contacts where id=" + record)
+                return cursor.fetchone()
+        except sqlite3.Error as err:
+            logging.critical("contact_by_id: %s", err)
 
     def get_grids(self) -> tuple:
         """returns a tuple of unique grids in the log."""

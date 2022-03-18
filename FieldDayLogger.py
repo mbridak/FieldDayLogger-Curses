@@ -1561,7 +1561,7 @@ def edit_key(key):
         if editFieldFocus > 7:
             editFieldFocus = 1
         qsoew.move(editFieldFocus, 10)  # move focus to call field
-        qsoew.addstr(qso[editFieldFocus])
+        qsoew.addstr(str(qso[editFieldFocus]))
         return
     elif key == BackSpace:
         if qso[editFieldFocus] != "":
@@ -1692,6 +1692,7 @@ def editQSO(q):
     """Edit contact"""
     global qsoew, qso, end_program
     log = db.contact_by_id(q)
+    logging.info("editQSO: record: %s, log: %s", q, log)
     if not log:
         return
     qso = ["", "", "", "", "", "", "", "", "", ""]

@@ -24,7 +24,6 @@ import curses
 import time
 import sys
 import os
-import sqlite3
 import socket
 from textwrap import shorten
 from pathlib import Path
@@ -157,9 +156,8 @@ hiscall = ""
 hissection = ""
 hisclass = ""
 mygrid = None
-database = "FieldDay.db"
 db = DataBase("FieldDay.db")
-fkeys = dict()
+fkeys = {}
 cw = None
 
 wrkdsections = []
@@ -678,19 +676,7 @@ def score():
 def qrpcheck():
     """checks if we are qrp"""
     global qrp
-    conn = sqlite3.connect(database)
-    c = conn.cursor()
-    c.execute("select count(*) as qrpc from contacts where mode = 'CW' and power > 5")
-    log = c.fetchall()
-    qrpc = list(log[0])[0]
-    c.execute("select count(*) as qrpp from contacts where mode = 'PH' and power > 5")
-    log = c.fetchall()
-    qrpp = list(log[0])[0]
-    c.execute("select count(*) as qrpd from contacts where mode = 'DI' and power > 5")
-    log = c.fetchall()
-    qrpd = list(log[0])[0]
-    conn.close()
-    qrp = not qrpc + qrpp + qrpd
+    qrp, _ = db.qrp_check()
 
 
 def getBandModeTally(the_band, the_mode):
@@ -986,13 +972,8 @@ def logwindow():
     modefiller = "  "
     zerofiller = "000"
     contacts = curses.newpad(1000, 80)
-    conn = sqlite3.connect(database)
-    c = conn.cursor()
-    c.execute("select * from contacts order by date_time desc")
-    log = c.fetchall()
-    conn.close()
-    logNumber = 0
-    for x in log:
+    log = db.fetch_all_contacts_desc()
+    for logNumber, x in enumerate(log):
         (
             logid,
             opcall,
@@ -1016,7 +997,6 @@ def logwindow():
             f"{the_band} {the_mode} {the_power}"
         )
         contacts.addstr(logNumber, 0, logline)
-        logNumber += 1
     stdscr.refresh()
     contacts.refresh(0, 0, 1, 1, 6, 54)
 
@@ -1106,10 +1086,7 @@ def displaySCP(matches):
 def workedSections():
     """finds all sections worked"""
     global wrkdsections
-    conn = sqlite3.connect(database)
-    c = conn.cursor()
-    c.execute("select distinct section from contacts")
-    all_rows = c.fetchall()
+    all_rows = db.sections()
     wrkdsections = str(all_rows)
     wrkdsections = (
         wrkdsections.replace("('", "")

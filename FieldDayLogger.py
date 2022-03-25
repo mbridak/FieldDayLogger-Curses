@@ -1410,20 +1410,20 @@ def displayInputField(field):
     filler = "                 "
     if field == 0:
         filler = "                 "
-        y = 1
+        x = 1
     elif field == 1:
         filler = "     "
-        y = 20
+        x = 20
     elif field == 2:
         filler = "       "
-        y = 27
-    stdscr.move(9, y)
+        x = 27
+    stdscr.move(9, x)
     if kbuf == "":
         stdscr.addstr(filler)
     else:
         line = kbuf + filler[: -len(kbuf)]
         stdscr.addstr(line.upper())
-    stdscr.move(9, len(kbuf) + y)
+    stdscr.move(9, len(kbuf) + x)
     stdscr.refresh()
 
 
@@ -1567,12 +1567,12 @@ def edit_key(key):
         qsoew.move(editFieldFocus, 10)  # move focus to call field
         qsoew.addstr(str(qso[editFieldFocus]))
         return
-    elif key == BackSpace:
+    if key == BackSpace:
         if qso[editFieldFocus] != "":
             qso[editFieldFocus] = str(qso[editFieldFocus])[0:-1]
         displayEditField(editFieldFocus)
         return
-    elif key == EnterKey:
+    if key == EnterKey:
         change_contact(qso)
         qsoew.erase()
         stdscr.clear()
@@ -1588,7 +1588,7 @@ def edit_key(key):
         stdscr.move(9, 1)
         end_program = True
         return
-    elif key == Escape:
+    if key == Escape:
         qsoew.erase()
         stdscr.clear()
         rectangle(stdscr, 0, 0, 7, 55)
@@ -1603,23 +1603,23 @@ def edit_key(key):
         stdscr.move(9, 1)
         end_program = True
         return
-    elif key == Space:
+    if key == Space:
         return
-    elif key == 258:  # arrow down
+    if key == 258:  # arrow down
         editFieldFocus += 1
         if editFieldFocus > 7:
             editFieldFocus = 1
         qsoew.move(editFieldFocus, 10)  # move focus to call field
         qsoew.addstr(str(qso[editFieldFocus]))
         return
-    elif key == 259:  # arrow up
+    if key == 259:  # arrow up
         editFieldFocus -= 1
         if editFieldFocus < 1:
             editFieldFocus = 7
         qsoew.move(editFieldFocus, 10)  # move focus to call field
         qsoew.addstr(str(qso[editFieldFocus]))
         return
-    elif curses.ascii.isascii(key):
+    if curses.ascii.isascii(key):
         if len(qso[editFieldFocus]) < maxEditFieldLength[editFieldFocus]:
             qso[editFieldFocus] = qso[editFieldFocus].upper() + chr(key).upper()
     displayEditField(editFieldFocus)

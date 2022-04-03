@@ -24,8 +24,8 @@ import curses
 import time
 import sys
 import os
+import re
 import socket
-from textwrap import shorten
 from pathlib import Path
 from shutil import copyfile
 from curses.textpad import rectangle
@@ -39,6 +39,7 @@ from cat_interface import CAT
 from lookup import HamDBlookup, HamQTH, QRZlookup
 from database import DataBase
 from cwinterface import CW
+from edittextfield import EditTextField
 
 
 if Path("./debug").exists():
@@ -92,12 +93,16 @@ contactlookup = {
 
 stdscr = curses.initscr()
 height, width = stdscr.getmaxyx()
+hiscall_field = EditTextField(stdscr, y=9, x=1, length=14)
+hisclass_field = EditTextField(stdscr, y=9, x=20, length=4)
+hissection_field = EditTextField(stdscr, y=9, x=27, length=3)
 
 if height < 24 or width < 80:
     print("Terminal size needs to be at least 80x24")
     curses.endwin()
     sys.exit()
 qsoew = 0
+qso_edit_fields = None
 qso = []
 end_program = False
 cat_control = None
@@ -215,7 +220,9 @@ def lazy_lookup(acall: str):
     if look_up:
         if acall == contactlookup["call"]:
             return
-
+        y, x = stdscr.getyx()
+        stdscr.addstr(9, 16, "💤")
+        stdscr.move(y, x)
         contactlookup["call"] = acall
         (
             contactlookup["grid"],
@@ -224,12 +231,25 @@ def lazy_lookup(acall: str):
             contactlookup["error"],
         ) = look_up.lookup(acall)
         if contactlookup["name"] == "NOT_FOUND NOT_FOUND":
+            y, x = stdscr.getyx()
+            stdscr.addstr(9, 16, "💢")
+            stdscr.move(y, x)
             contactlookup["name"] = "NOT_FOUND"
+        else:
+            y, x = stdscr.getyx()
+            stdscr.addstr(9, 16, "🌐")
+            stdscr.move(y, x)
         if contactlookup["grid"] == "NOT_FOUND":
             contactlookup["grid"] = ""
         if contactlookup["grid"] and mygrid:
             contactlookup["distance"] = distance(mygrid, contactlookup["grid"])
             contactlookup["bearing"] = bearing(mygrid, contactlookup["grid"])
+            displayinfo(f"{contactlookup['name']}", line=1)
+            displayinfo(
+                f"{contactlookup['grid']} "
+                f"{round(contactlookup['distance'])}km "
+                f"{round(contactlookup['bearing'])}deg"
+            )
         logging.info("%s", contactlookup)
 
 
@@ -594,7 +614,7 @@ def read_sections():
         logging.critical("read_sections: read error: %s", exception)
 
 
-def sectionCheck(sec):
+def section_check(sec):
     """Section check partial"""
     if sec == "":
         sec = "^"
@@ -619,7 +639,7 @@ def readSCP():
     scp = list(map(lambda x: x.strip(), scp))
 
 
-def superCheck(acall):
+def super_check(acall):
     """Supercheck partial"""
     return list(filter(lambda x: x.startswith(acall), scp))
 
@@ -628,7 +648,18 @@ def dcontacts():
     """I don't remember what this does... This is why commenting code is important."""
     rectangle(stdscr, 0, 0, 7, 55)
     contactslabel = "Recent Contacts"
-    contactslabeloffset = (49 / 2) - len(contactslabel) / 2
+    contactslabeloffset = (55 / 2) - len(contactslabel) / 2
+    stdscr.addstr(0, int(contactslabeloffset), contactslabel)
+
+
+def contacts_label():
+    """
+    Centers a string to create a label for the Recent contacts window.
+    Seems stupid but it's used like 4 times.
+    """
+    rectangle(stdscr, 0, 0, 7, 55)
+    contactslabel = "Recent Contacts"
+    contactslabeloffset = (55 / 2) - len(contactslabel) / 2
     stdscr.addstr(0, int(contactslabeloffset), contactslabel)
 
 
@@ -1029,29 +1060,26 @@ def logdown():
     """moves the log down one line"""
     global contactsOffset
     contactsOffset -= 1
-    if contactsOffset < 0:
-        contactsOffset = 0
+    contactsOffset = max(contactsOffset, 0)
     contacts.refresh(contactsOffset, 0, 1, 1, 6, 54)
 
 
 def dupCheck(acall):
     """checks for duplicates"""
     global hisclass, hissection
-    if not contactlookup["call"] and look_up:
-        _thethread = threading.Thread(
-            target=lazy_lookup,
-            args=(acall,),
-            daemon=True,
-        )
-        _thethread.start()
     oy, ox = stdscr.getyx()
     scpwindow = curses.newpad(1000, 33)
     rectangle(stdscr, 11, 0, 21, 34)
     log = db.dup_check(acall)
-    counter = 0
-    for contact in log:
+    for counter, contact in enumerate(log):
         decorate = ""
         hiscallsign, hisclass, hissection, hisband, hismode = contact
+        if hissection_field.text() == "":
+            hissection_field.set_text(hissection)
+            hissection_field.get_focus()
+        if hisclass_field.text() == "":
+            hisclass_field.set_text(hisclass)
+            hisclass_field.get_focus()
         if hisband == band and hismode == mode:
             decorate = curses.color_pair(1)
             curses.flash()
@@ -1059,9 +1087,6 @@ def dupCheck(acall):
         else:
             decorate = curses.A_NORMAL
         scpwindow.addstr(counter, 0, f"{hiscallsign}: {hisband} {hismode}", decorate)
-        counter = counter + 1
-        stdscr.addstr(9, 20, hisclass.ljust(5))
-        stdscr.addstr(9, 27, hissection.ljust(7))
     stdscr.refresh()
     scpwindow.refresh(0, 0, 12, 1, 20, 33)
     stdscr.move(oy, ox)
@@ -1069,6 +1094,7 @@ def dupCheck(acall):
 
 def displaySCP(matches):
     """displays section check partial results"""
+    oy, ox = stdscr.getyx()
     scpwindow = curses.newpad(1000, 33)
     rectangle(stdscr, 11, 0, 21, 34)
     for x in matches:
@@ -1078,6 +1104,7 @@ def displaySCP(matches):
         scpwindow.addstr(f"{x} ")
     stdscr.refresh()
     scpwindow.refresh(0, 0, 12, 1, 20, 33)
+    stdscr.move(oy, ox)
 
 
 def workedSections():
@@ -1246,16 +1273,21 @@ def entry():
 
 def clearentry():
     """Clear text entry fields"""
-    global inputFieldFocus, hiscall, hissection, hisclass, kbuf
-    clearcontactlookup()
+    global inputFieldFocus, hiscall, hissection, hisclass
     hiscall = ""
     hissection = ""
     hisclass = ""
-    kbuf = ""
+    y, x = stdscr.getyx()
+    stdscr.addstr(9, 16, "  ")
+    stdscr.move(y, x)
     inputFieldFocus = 0
-    displayInputField(2)
-    displayInputField(1)
-    displayInputField(0)
+    hissection_field.set_text("")
+    hissection_field.get_focus()
+    hisclass_field.set_text("")
+    hisclass_field.get_focus()
+    hiscall_field.set_text("")
+    hiscall_field.get_focus()
+    clearcontactlookup()
 
 
 def highlightBonus(bonus):
@@ -1263,6 +1295,17 @@ def highlightBonus(bonus):
     if bonus:
         return curses.color_pair(1)
     return curses.A_DIM
+
+
+def setStatusMsg(msg):
+    """displays a status message"""
+    oy, ox = stdscr.getyx()
+    window = curses.newpad(10, 33)
+    rectangle(stdscr, 11, 0, 21, 34)
+    window.addstr(0, 0, str(msg))
+    stdscr.refresh()
+    window.refresh(0, 0, 12, 1, 20, 33)
+    stdscr.move(oy, ox)
 
 
 def statusline():
@@ -1277,18 +1320,6 @@ def statusline():
         if err != "addwstr() returned ERR":
             pass
             # logging.debug("statusline: %s", err)
-
-    if contactlookup["call"]:
-        stdscr.addstr(
-            22,
-            1,
-            f"{contactlookup['call']}: {shorten(contactlookup['name'], width=25, placeholder='')} "
-            f"Grid: {contactlookup['grid']} "
-            f"Dir: {contactlookup['bearing']} "
-            f"Dis: {contactlookup['distance']} ",
-        )
-    else:
-        stdscr.addstr(22, 1, " " * 58)
 
     stdscr.addstr(23, 1, "Band:        Mode:")
     stdscr.addstr(23, 7, f"  {band}  ", curses.A_REVERSE)
@@ -1386,44 +1417,12 @@ def displayHelp():
     stdscr.refresh()
 
 
-def displayinfo(info):
+def displayinfo(info, line=2):
     """It.. Well, displays a line of info..."""
     y, x = stdscr.getyx()
-    stdscr.move(20, 1)
-    stdscr.addstr(info)
+    stdscr.move(18 + line, 1)
+    stdscr.addstr(str(info))
     stdscr.move(y, x)
-    stdscr.refresh()
-
-
-def displayLine():
-    """I'm sure this does important stuff."""
-    filler = "                        "
-    line = kbuf + filler[: -len(kbuf)]
-    stdscr.move(9, 1)
-    stdscr.addstr(line)
-    stdscr.move(9, len(kbuf) + 1)
-    stdscr.refresh()
-
-
-def displayInputField(field):
-    """this displays an input field."""
-    filler = "                 "
-    if field == 0:
-        filler = "                 "
-        x = 1
-    elif field == 1:
-        filler = "     "
-        x = 20
-    elif field == 2:
-        filler = "       "
-        x = 27
-    stdscr.move(9, x)
-    if kbuf == "":
-        stdscr.addstr(filler)
-    else:
-        line = kbuf + filler[: -len(kbuf)]
-        stdscr.addstr(line.upper())
-    stdscr.move(9, len(kbuf) + x)
     stdscr.refresh()
 
 
@@ -1474,86 +1473,85 @@ def processcommand(cmd):
 
 def proc_key(key):
     """Process raw key presses"""
-    global inputFieldFocus, hiscall, hissection, hisclass, kbuf  # Globals bad m-kay
+    global inputFieldFocus, hiscall, hissection, hisclass  # Globals bad m-kay
+    input_field = [hiscall_field, hisclass_field, hissection_field]
     if key == 9 or key == Space:
         inputFieldFocus += 1
         if inputFieldFocus > 2:
             inputFieldFocus = 0
         if inputFieldFocus == 0:
-            hissection = kbuf  # store any input to previous field
-            stdscr.move(9, 1)  # move focus to call field
-            kbuf = hiscall  # load current call into buffer
-            stdscr.addstr(kbuf)
+            hissection = hissection_field.text()  # store any input to previous field
+            hiscall_field.get_focus()
         if inputFieldFocus == 1:
-            hiscall = kbuf  # store any input to previous field
-            dupCheck(hiscall)
-            stdscr.move(9, 20)  # move focus to class field
-            kbuf = hisclass  # load current class into buffer
-            stdscr.addstr(kbuf)
+            logging.debug(
+                "checking for dupe and grid %s - %s", hiscall, hiscall_field.text()
+            )
+            if hiscall != hiscall_field.text():
+                if len(hiscall_field.text()) > 2 and hiscall_field.text()[:1] != ".":
+                    dupCheck(hiscall_field.text())
+                    logging.debug("Call the lazy")
+                    x = threading.Thread(
+                        target=lazy_lookup, args=(hiscall_field.text(),), daemon=True
+                    )
+                    x.start()
+                hiscall = hiscall_field.text()
+            hisclass_field.get_focus()
         if inputFieldFocus == 2:
-            hisclass = kbuf  # store any input to previous field
-            stdscr.move(9, 27)  # move focus to section field
-            kbuf = hissection  # load current section into buffer
-            stdscr.addstr(kbuf)
+            hisclass = hisclass_field.text()
+            hissection_field.get_focus()
         return
-    elif key == BackSpace:
-        if kbuf != "":
-            kbuf = kbuf[0:-1]
-            if inputFieldFocus == 0 and len(kbuf) < 3:
-                displaySCP(superCheck("^"))
-            if inputFieldFocus == 0 and len(kbuf) > 2:
-                displaySCP(superCheck(kbuf))
-            if inputFieldFocus == 2:
-                sectionCheck(kbuf)
-        displayInputField(inputFieldFocus)
-        return
-    elif key == EnterKey:
+    if key == EnterKey:
         if inputFieldFocus == 0:
-            hiscall = kbuf
+            hiscall = hiscall_field.text()
         elif inputFieldFocus == 1:
-            hisclass = kbuf
+            hisclass = hisclass_field.text()
         elif inputFieldFocus == 2:
-            hissection = kbuf
+            hissection = hissection_field.text()
         if hiscall[:1] == ".":  # process command
             processcommand(hiscall)
             clearentry()
             return
         if hiscall == "" or hisclass == "" or hissection == "":
             return
-        contact = (
-            hiscall,
-            hisclass,
-            hissection,
-            band,
-            mode,
-            int(preference["power"]),
-            contactlookup["grid"],
-            contactlookup["name"],
+        isCall = re.compile(
+            "^(([0-9])?[A-z]{1,2}[0-9]/)?[A-Za-z]{1,2}[0-9]{1,3}[A-Za-z]{1,4}(/[A-Za-z0-9]{1,3})?$"
         )
-        log_contact(contact)
-        clearentry()
+        if re.match(isCall, hiscall):
+            contact = (
+                hiscall,
+                hisclass,
+                hissection,
+                band,
+                mode,
+                int(preference.preference["power"]),
+                contactlookup["grid"],
+                contactlookup["name"],
+            )
+            log_contact(contact)
+            clearentry()
+        else:
+            setStatusMsg("Must be valid call sign")
         return
     elif key == Escape:
         clearentry()
         return
-    elif key == Space:
-        return
-    elif key == 258:  # key down
+    if key == 258:  # key down
         logup()
-    elif key == 259:  # key up
+        return
+    if key == 259:  # key up
         logdown()
-    elif key == 338:  # page down
+        return
+    if key == 338:  # page down
         logpagedown()
-    elif key == 339:  # page up
+        return
+    if key == 339:  # page up
         logpageup()
-    elif curses.ascii.isascii(key):
-        if len(kbuf) < maxFieldLength[inputFieldFocus]:
-            kbuf = kbuf.upper() + chr(key).upper()
-            if inputFieldFocus == 0 and len(kbuf) > 2:
-                displaySCP(superCheck(kbuf))
-            if inputFieldFocus == 2 and len(kbuf) > 0:
-                sectionCheck(kbuf)
-    displayInputField(inputFieldFocus)
+        return
+    input_field[inputFieldFocus].getchar(key)
+    if inputFieldFocus == 0 and len(hiscall_field.text()) > 2:
+        displaySCP(super_check(hiscall_field.text()))
+    if inputFieldFocus == 2:
+        section_check(hissection_field.text())
     check_function_keys(key)
 
 
@@ -1562,24 +1560,22 @@ def edit_key(key):
     global editFieldFocus, end_program
     if key == 9:
         editFieldFocus += 1
-        if editFieldFocus > 7:
+        if editFieldFocus > 8:
             editFieldFocus = 1
-        qsoew.move(editFieldFocus, 10)  # move focus to call field
-        qsoew.addstr(str(qso[editFieldFocus]))
-        return
-    if key == BackSpace:
-        if qso[editFieldFocus] != "":
-            qso[editFieldFocus] = str(qso[editFieldFocus])[0:-1]
-        displayEditField(editFieldFocus)
+        qso_edit_fields[editFieldFocus - 1].get_focus()
         return
     if key == EnterKey:
+        qso[1] = qso_edit_fields[0].text()
+        qso[2] = qso_edit_fields[1].text()
+        qso[3] = qso_edit_fields[2].text()
+        qso[4] = f"{qso_edit_fields[3].text()} {qso_edit_fields[4].text()}"
+        qso[5] = qso_edit_fields[5].text()
+        qso[6] = qso_edit_fields[6].text()
+        qso[7] = qso_edit_fields[7].text()
         change_contact(qso)
         qsoew.erase()
         stdscr.clear()
-        rectangle(stdscr, 0, 0, 7, 55)
-        contactslabel = "Recent Contacts"
-        contactslabeloffset = (49 / 2) - len(contactslabel) / 2
-        stdscr.addstr(0, int(contactslabeloffset), contactslabel)
+        contacts_label()
         logwindow()
         sections()
         stats()
@@ -1591,10 +1587,7 @@ def edit_key(key):
     if key == Escape:
         qsoew.erase()
         stdscr.clear()
-        rectangle(stdscr, 0, 0, 7, 55)
-        contactslabel = "Recent Contacts"
-        contactslabeloffset = (49 / 2) - len(contactslabel) / 2
-        stdscr.addstr(0, int(contactslabeloffset), contactslabel)
+        contacts_label()
         logwindow()
         sections()
         stats()
@@ -1603,26 +1596,19 @@ def edit_key(key):
         stdscr.move(9, 1)
         end_program = True
         return
-    if key == Space:
-        return
     if key == 258:  # arrow down
         editFieldFocus += 1
-        if editFieldFocus > 7:
+        if editFieldFocus > 8:
             editFieldFocus = 1
-        qsoew.move(editFieldFocus, 10)  # move focus to call field
-        qsoew.addstr(str(qso[editFieldFocus]))
+        qso_edit_fields[editFieldFocus - 1].get_focus()
         return
-    if key == 259:  # arrow up
+    if key in (259, 353):  # arrow up
         editFieldFocus -= 1
         if editFieldFocus < 1:
             editFieldFocus = 7
-        qsoew.move(editFieldFocus, 10)  # move focus to call field
-        qsoew.addstr(str(qso[editFieldFocus]))
+        qso_edit_fields[editFieldFocus - 1].get_focus()
         return
-    if curses.ascii.isascii(key):
-        if len(qso[editFieldFocus]) < maxEditFieldLength[editFieldFocus]:
-            qso[editFieldFocus] = qso[editFieldFocus].upper() + chr(key).upper()
-    displayEditField(editFieldFocus)
+    qso_edit_fields[editFieldFocus - 1].getchar(key)
 
 
 def displayEditField(field):
@@ -1646,7 +1632,8 @@ def displayEditField(field):
 
 def EditClickedQSO(line):
     """Edit a qso clicked in the log window."""
-    global qsoew, qso, end_program
+    global qsoew, qso, end_program, qso_edit_fields, editFieldFocus
+    editFieldFocus = 1
     record = (
         contacts.instr((line - 1) + contactsOffset, 0, 55)
         .decode("utf-8")
@@ -1669,24 +1656,59 @@ def EditClickedQSO(line):
     qsoew.keypad(True)
     qsoew.nodelay(True)
     qsoew.box()
-    qsoew.addstr(1, 1, f"Call   : {qso[1]}")
-    qsoew.addstr(2, 1, f"Class  : {qso[2]}")
-    qsoew.addstr(3, 1, f"Section: {qso[3]}")
-    qsoew.addstr(4, 1, f"At     : {qso[4]}")
-    qsoew.addstr(5, 1, f"Band   : {qso[5]}")
-    qsoew.addstr(6, 1, f"Mode   : {qso[6]}")
-    qsoew.addstr(7, 1, f"Powers : {qso[7]}")
+
+    qso_edit_field_1 = EditTextField(qsoew, 1, 10, 14)
+    qso_edit_field_2 = EditTextField(qsoew, 2, 10, 3)
+    qso_edit_field_3 = EditTextField(qsoew, 3, 10, 3)
+    qso_edit_field_4 = EditTextField(qsoew, 4, 10, 10)
+    qso_edit_field_5 = EditTextField(qsoew, 4, 21, 8)
+    qso_edit_field_6 = EditTextField(qsoew, 5, 10, 3)
+    qso_edit_field_7 = EditTextField(qsoew, 6, 10, 2)
+    qso_edit_field_8 = EditTextField(qsoew, 7, 10, 3)
+
+    qso_edit_field_1.set_text(record[1])
+    qso_edit_field_2.set_text(record[2])
+    qso_edit_field_3.set_text(record[3])
+    qso_edit_field_4.set_text(record[4])
+    qso_edit_field_5.set_text(record[5])
+    qso_edit_field_6.set_text(record[6])
+    qso_edit_field_7.set_text(record[7])
+    qso_edit_field_8.set_text(str(record[8]))
+
+    qso_edit_fields = [
+        qso_edit_field_1,
+        qso_edit_field_2,
+        qso_edit_field_3,
+        qso_edit_field_4,
+        qso_edit_field_5,
+        qso_edit_field_6,
+        qso_edit_field_7,
+        qso_edit_field_8,
+    ]
+
+    qsoew.addstr(1, 1, "Call   : ")
+    qsoew.addstr(2, 1, "Class  : ")
+    qsoew.addstr(3, 1, "Section: ")
+    qsoew.addstr(4, 1, "At     : ")
+    qsoew.addstr(5, 1, "Band   : ")
+    qsoew.addstr(6, 1, "Mode   : ")
+    qsoew.addstr(7, 1, "Powers : ")
     qsoew.addstr(8, 1, "[Enter] to save          [Esc] to exit")
-    displayEditField(1)
+
+    for displayme in qso_edit_fields:
+        displayme.get_focus()
+    qso_edit_fields[0].get_focus()
+
     while 1:
         statusline()
         stdscr.refresh()
         qsoew.refresh()
         c = qsoew.getch()
         if c != -1:
+            logging.debug("Key: %d", c)
             edit_key(c)
         else:
-            time.sleep(0.1)
+            time.sleep(0.01)
         if end_program:
             end_program = False
             break
@@ -1694,7 +1716,10 @@ def EditClickedQSO(line):
 
 def editQSO(q):
     """Edit contact"""
-    global qsoew, qso, end_program
+    if q is False or q == "":
+        setStatusMsg("Must specify a contact number")
+        return
+    global qsoew, qso, end_program, qso_edit_fields, editFieldFocus
     log = db.contact_by_id(q)
     logging.info("editQSO: record: %s, log: %s", q, log)
     if not log:
@@ -1705,6 +1730,36 @@ def editQSO(q):
     qsoew.keypad(True)
     qsoew.nodelay(True)
     qsoew.box()
+    editFieldFocus = 1
+    qso_edit_field_1 = EditTextField(qsoew, 1, 10, 14)
+    qso_edit_field_2 = EditTextField(qsoew, 2, 10, 3)
+    qso_edit_field_3 = EditTextField(qsoew, 3, 10, 3)
+    qso_edit_field_4 = EditTextField(qsoew, 4, 10, 10)
+    qso_edit_field_5 = EditTextField(qsoew, 4, 21, 8)
+    qso_edit_field_6 = EditTextField(qsoew, 5, 10, 3)
+    qso_edit_field_7 = EditTextField(qsoew, 6, 10, 2)
+    qso_edit_field_8 = EditTextField(qsoew, 7, 10, 3)
+
+    qso_edit_field_1.set_text(log[1])
+    qso_edit_field_2.set_text(log[2])
+    qso_edit_field_3.set_text(log[3])
+    dt = log[4].split()
+    qso_edit_field_4.set_text(dt[0])
+    qso_edit_field_5.set_text(dt[1])
+    qso_edit_field_6.set_text(log[5])
+    qso_edit_field_7.set_text(log[6])
+    qso_edit_field_8.set_text(str(log[7]))
+
+    qso_edit_fields = [
+        qso_edit_field_1,
+        qso_edit_field_2,
+        qso_edit_field_3,
+        qso_edit_field_4,
+        qso_edit_field_5,
+        qso_edit_field_6,
+        qso_edit_field_7,
+        qso_edit_field_8,
+    ]
     qsoew.addstr(1, 1, f"Call   : {qso[1]}")
     qsoew.addstr(2, 1, f"Class  : {qso[2]}")
     qsoew.addstr(3, 1, f"Section: {qso[3]}")
@@ -1713,7 +1768,11 @@ def editQSO(q):
     qsoew.addstr(6, 1, f"Mode   : {qso[6]}")
     qsoew.addstr(7, 1, f"Powers : {qso[7]}")
     qsoew.addstr(8, 1, "[Enter] to save          [Esc] to exit")
-    displayEditField(1)
+
+    for displayme in qso_edit_fields:
+        displayme.get_focus()
+    qso_edit_fields[0].get_focus()
+
     while 1:
         statusline()
         stdscr.refresh()
@@ -1722,7 +1781,7 @@ def editQSO(q):
         if c != -1:
             edit_key(c)
         else:
-            time.sleep(0.1)
+            time.sleep(0.01)
         if end_program:
             end_program = False
             break

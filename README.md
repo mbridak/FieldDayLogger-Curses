@@ -20,6 +20,7 @@ This is a simple logger meant for single op. It's not usable for clubs, there is
 * ReWorked scoring since rule changes for 2022.
 * Moved call and grid lookups to a thread.
 * Added CW macros. The macros are stored in cwmacros_fd.txt. This works in conjunction with [PyWinKeyerSerial](https://github.com/mbridak/PyWinKeyerSerial), [cwdaemon](https://github.com/acerion/cwdaemon) and [winkeydaemon](https://github.com/N0NB/winkeydaemon). See Initial Setup section for settings.
+* Improved text entry and editing.
 
 
 # The basic functionality

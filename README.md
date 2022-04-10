@@ -21,6 +21,7 @@ This is a simple logger meant for single op. It's not usable for clubs, there is
 * Moved call and grid lookups to a thread.
 * Added CW macros. The macros are stored in cwmacros_fd.txt. This works in conjunction with [PyWinKeyerSerial](https://github.com/mbridak/PyWinKeyerSerial), [cwdaemon](https://github.com/acerion/cwdaemon) and [winkeydaemon](https://github.com/N0NB/winkeydaemon). See Initial Setup section for settings.
 * Improved text entry and editing.
+* Added auto-logging of FT8 contacts made with wsjt-x. 
 
 
 # The basic functionality
@@ -141,9 +142,24 @@ The macros are stored in the cwmacros_fd.txt file. The fields to edit are pretty
 `F1|Run CQ|cq fd {MYCALL} {MYCALL} k`
 
 #### Callsign lookups:
-An option of callsign lookups for gridsquare and op name is offered by one of three services: QRZ, HamDB or HamQTH. The use of these can be turned on or off by editing the JSON preference file. The lookup happens in it's own thread and is kicked off after the cursor leaves the call field. If the look up is successful, you'll see the status line at the bottom change giving you name, grid, bearing and distance to contact.
+An option of callsign lookups for gridsquare and op name is offered by one of three services: QRZ, HamDB or HamQTH. The use of these can be turned on or off by editing the JSON preference file. The lookup happens in it's own thread and is kicked off after the cursor leaves the call field. You'll see an indicator in the call field that the look up is in progress. 
 
-`K5TUX: JOHN WOODMAN Grid: EM37bb Dir: 74 Dis: 2206     Local: 03/16 15:12:18`
+![lookup waiting](pics/lookup-wait.png) 
+
+If the look up is successful, the icon in the call field will change.
+
+![lookup good](pics/lookup-good.png)
+
+And you'll see the status line at the bottom change giving you name, grid, bearing and distance to contact.
+
+![lookup result](pics/lookup-result.png)
+
+If the lookup fails. you will see:
+
+![lookup failed](pics/lookup-failed.png)
+
+#### WSJT-X FT8
+We monitor the multicast address used by wsjt-x for UDP packets. If the packet says we've made a contact, we automatically add the contact to the Field Day log.
 
 #### Cloudlog
 If you use Cloudlog, contacts can be pushed to your Cloudlog server.

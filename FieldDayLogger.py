@@ -40,6 +40,7 @@ from lookup import HamDBlookup, HamQTH, QRZlookup
 from database import DataBase
 from cwinterface import CW
 from edittextfield import EditTextField
+from wsjtx_listener import WsjtxListener
 
 
 if Path("./debug").exists():
@@ -80,6 +81,8 @@ preference = {
     "CW_IP": "localhost",
     "CW_port": 6789,
 }
+
+ft8_watcher = WsjtxListener()
 
 contactlookup = {
     "call": "",
@@ -1787,6 +1790,25 @@ def editQSO(q):
             break
 
 
+def get_ft8_qso():
+    """Monitor FT8 contacts"""
+    while True:
+        ft8qso = ft8_watcher.get_udp()
+        if ft8qso:
+            contact = (
+                ft8qso[0],
+                ft8qso[1],
+                ft8qso[2],
+                ft8qso[5],
+                "DI",
+                preference["power"],
+                ft8qso[8],
+                ft8qso[9],
+            )
+            log_contact(contact)
+            clearentry()
+
+
 def main(s):  # pylint: disable=unused-argument
     """Main entry point for the program"""
     read_sections()
@@ -1818,6 +1840,14 @@ def main(s):  # pylint: disable=unused-argument
     cloudlogauth()
     stdscr.refresh()
     stdscr.move(9, 1)
+
+    # start the listener for FT8 udp packets
+    _ft8thread = threading.Thread(
+        target=get_ft8_qso,
+        daemon=True,
+    )
+    _ft8thread.start()
+
     while 1:
         statusline()
         stdscr.refresh()

@@ -1272,7 +1272,7 @@ def entry():
     rectangle(stdscr, 8, 0, 10, 18)
     stdscr.addstr(8, 1, "CALL")
     rectangle(stdscr, 8, 19, 10, 25)
-    stdscr.addstr(8, 20, "class")
+    stdscr.addstr(8, 20, "Class")
     rectangle(stdscr, 8, 26, 10, 34)
     stdscr.addstr(8, 27, "Section")
 

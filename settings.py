@@ -201,14 +201,20 @@ class SettingsScreen:
                 self.preference["userigctld"] = self.userigctld.get_state()
                 self.preference["useflrig"] = self.useflrig.get_state()
                 self.preference["CAT_ip"] = self.CAT_ip.text()
-                self.preference["CAT_port"] = int(self.CAT_port.text())
+                try:
+                    self.preference["CAT_port"] = int(self.CAT_port.text())
+                except ValueError:
+                    self.preference["CAT_port"] = 0
                 self.preference["cloudlog"] = self.cloudlog.get_state()
                 self.preference["cloudlogapi"] = self.cloudlogapi.text()
                 self.preference["cloudlogurl"] = self.cloudlogurl.text()
                 self.preference["cloudlogstationid"] = self.cloudlogstationid.text()
                 self.preference["altpower"] = self.altpower.get_state()
                 self.preference["CW_IP"] = self.CW_IP.text()
-                self.preference["CW_port"] = self.CW_port.text()
+                try:
+                    self.preference["CW_port"] = int(self.CW_port.text())
+                except ValueError:
+                    self.preference["CW_port"] = 0
                 if self.cwdaemon.get_state() is True:
                     self.preference["cwtype"] = 1
                 if self.pywinkeyer.get_state() is True:

@@ -38,7 +38,15 @@ class CW:
     def _sendcw_udp(self, texttosend):
         """send cw to udp port"""
         logging.info("UDP: %s", texttosend)
-        server_address_port = (self.host, self.port)
-        # bufferSize          = 1024
-        udp_client_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-        udp_client_socket.sendto(bytes(texttosend, "utf-8"), server_address_port)
+        if self.port and self.host:
+            server_address_port = (self.host, self.port)
+            # bufferSize          = 1024
+            udp_client_socket = socket.socket(
+                family=socket.AF_INET, type=socket.SOCK_DGRAM
+            )
+            try:
+                udp_client_socket.sendto(
+                    bytes(texttosend, "utf-8"), server_address_port
+                )
+            except socket.gaierror:
+                pass

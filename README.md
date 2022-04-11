@@ -21,7 +21,8 @@ This is a simple logger meant for single op. It's not usable for clubs, there is
 * Moved call and grid lookups to a thread.
 * Added CW macros. The macros are stored in cwmacros_fd.txt. This works in conjunction with [PyWinKeyerSerial](https://github.com/mbridak/PyWinKeyerSerial), [cwdaemon](https://github.com/acerion/cwdaemon) and [winkeydaemon](https://github.com/N0NB/winkeydaemon). See Initial Setup section for settings.
 * Improved text entry and editing.
-* Added auto-logging of FT8 contacts made with wsjt-x. 
+* Added auto-logging of FT8 contacts made with wsjt-x.
+* Added a proper settings screen.
 
 
 # The basic functionality
@@ -41,6 +42,7 @@ Commands start with a period character in the callsign field and are immediately
 .D# Deletes log entry. .D26 will delete the log line starting with 026.
 .E# Edits log entry. .E26 will edit the log line starting with 026.
 .L Generate Cabrillo, ADIF and stats.
+.S Settings Screen
 [esc] abort input, clear all fields.
 ```
 
@@ -59,72 +61,11 @@ For example, when I initially start the program I could enter the following:
 This says I'm K6GTE 1B ORG, running 5 watts CW on 40 Meters.
 
 ## Initial Setup
-Before operating for the first time, you will need to edit the preference file that is in a JSON format. The file is named `./fd_preferences.json`. If it is not there or you mangle it badly, just delete it and run the logging program. Another one will be created for you.
+Before operating for the first time, you will need to edit the settings. Use the `.S` command to pull up the settings screen.
 
-Here's an example of it's contents:
+![Settings Screen](pics/settings_screen.png)
 
-```
-
-{
-    "mycall": "Call",
-    "myclass": "Class",
-    "mysection": "Section",
-    "power": "100",
-    "altpower": 0,
-    "usehamdb": 0,
-    "useqrz": 0,
-    "usehamqth": 0,
-    "lookupusername": "w1aw",
-    "lookuppassword": "secret",
-    "userigctld": 0,
-    "useflrig": 0,
-    "CAT_ip": "localhost",
-    "CAT_port": 4532,
-    "cloudlog": 0,
-    "cloudlogapi": "c01234567890123456789",
-    "cloudlogurl": "https://www.cloudlog.com/Cloudlog/index.php/api/",
-    "cloudlogstationid": "",
-    "usemarker": 0,
-    "markerfile": ".xplanet/markers/ham",
-    "cwtype": 0,
-    "CW_IP": "localhost",
-    "CW_port": 6789
-}
-
-```
-
-The lines for your callsign, class, section, power are pretty self explanatory. The lines ending in a 0 or a 1 tell the program that you either want or do not want to use a certain feature.
-
-For example the block:
-
-```
-    "usehamdb": 0,
-    "useqrz": 1,
-    "usehamqth": 0,
-```
-
-Tells the program that you want to use QRZ to look up the gridsquare and name of the contact. If the lookup service you choose needs credentials, put them in lookupusername and lookuppassword.
-
-This block:
-
-```
-    "userigctld": 1,
-    "useflrig": 0,
-    "CAT_ip": "localhost",
-    "CAT_port": 4532,
-```
-
-Says, of the two available CAT interface options, flrig or rigctld, I want to use rigctld. And it can be found on localhost:4532.
-
-This block:
-
-```
-    "cwtype": 0,
-    "CW_IP": "localhost",
-    "CW_port": 6789
-```
-
-Is for the type of CW backend you are using. For cwdaemon or winkeydaemon set this to 1. Set this to 2 for PyWinkeyer. Leave as 0 if you are not using one. The CW_port can be set to 6789 for cwdaemon and winkeydaemon, 8000 for PyWinkeyer.
+The CW_port can be set to 6789 for cwdaemon and winkeydaemon, 8000 for PyWinkeyer.
 
 ## Logging
 Okay you've made a contact. Enter the call in the call field. As you type it in, it will do a super check partial (see below). Press TAB or SPACE to advance to the next field. Once the call is complete it will do a DUP check (see below). It will try and Autofill the next fields (see below). When entering the section, it will do a section partial check (see below). Press the ENTER key to submit the Q to the log. It can send contact to Cloudlog (see below). If it's a busted call or a dup, press the ESC key to clear all inputs and start again.

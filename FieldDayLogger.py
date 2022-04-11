@@ -42,6 +42,9 @@ from cwinterface import CW
 from edittextfield import EditTextField
 from wsjtx_listener import WsjtxListener
 
+# from preferences import Preferences
+from settings import SettingsScreen
+
 
 if Path("./debug").exists():
     logging.basicConfig(
@@ -1406,9 +1409,9 @@ def displayHelp():
         ".H this message  |.E### edit QSO",
         ".Q quit program  |.D### del QSO",
         ".Kyourcall       |.L Generate Log",
-        ".Cyourclass      |",
-        ".Syoursection    |[esc] abort inp",
-        ".B## change bands|",
+        ".Cyourclass      |.S Settings",
+        ".Syoursection    |",
+        ".B## change bands|[esc] abort inp",
         ".M[CW,PH,DI] mode|",
         ".P## change power|",
         "                 |",
@@ -1431,8 +1434,24 @@ def displayinfo(info, line=2):
 
 def processcommand(cmd):
     """Process a dot command"""
-    global end_program
+    global end_program, preference
     cmd = cmd[1:].upper()
+    if cmd == "S":
+        editsettings = SettingsScreen(preference)
+        changes = editsettings.show()
+        if changes:
+            preference = changes
+            writepreferences()
+            readpreferences()
+        stdscr.clear()
+        contacts_label()
+        logwindow()
+        sections()
+        stats()
+        displayHelp()
+        entry()
+        stdscr.move(9, 1)
+        return
     if cmd == "Q":  # Quit
         end_program = True
         return

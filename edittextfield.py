@@ -4,6 +4,7 @@
 import curses
 from curses.ascii import isalnum
 import logging
+import tkinter
 
 
 class EditTextField:
@@ -22,8 +23,20 @@ class EditTextField:
         self.my_state = False
         self.allow_lowercase = False
 
+    @staticmethod
+    def get_clipboard():
+        """copy the clipboard"""
+        bloat = tkinter.Tk()
+        clipboard = bloat.clipboard_get()
+        bloat.withdraw()
+        bloat.update()
+        bloat.destroy()
+        return clipboard
+
     def getchar(self, character) -> None:
         """Process character"""
+        if character == -1:
+            return
         if self.is_bool:
             if character == 32:  # space
                 self.toggle_state()
@@ -41,6 +54,20 @@ class EditTextField:
             except ValueError:
                 pass
         else:
+            if curses.keyname(character) == b"^V":
+                clip = self.get_clipboard()
+                if clip and len(self.textfield) < self.max_length:
+                    self.textfield = (
+                        f"{self.textfield[:self.cursor_position]}"
+                        f"{clip}"
+                        f"{self.textfield[self.cursor_position:]}"
+                    )
+                    self.cursor_position += len(clip)
+                    if len(self.textfield) > self.max_length:
+                        self.textfield = self.textfield[: self.max_length]
+                    if self.cursor_position > self.max_length:
+                        self.cursor_position = self.max_length
+
             if character == curses.KEY_LEFT:
                 self.cursor_position -= 1
                 self.cursor_position = max(self.cursor_position, 0)

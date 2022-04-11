@@ -61,7 +61,7 @@ For example, when I initially start the program I could enter the following:
 This says I'm K6GTE 1B ORG, running 5 watts CW on 40 Meters.
 
 ## Initial Setup
-Before operating for the first time, you will need to edit the settings. Use the `.S` command to pull up the settings screen.
+Before operating for the first time, you will need to edit the settings. Use the `.S` command to pull up the settings screen. You use the TAB and Shift TAB keys to move between the fields. Enter key to commit changes. Esc key to exit without saving.
 
 ![Settings Screen](pics/settings_screen.png)
 

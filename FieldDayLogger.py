@@ -14,6 +14,8 @@ Contact_______: michael.bridak@gmail.com
 # COLOR_WHITE	White
 # COLOR_YELLOW	Yellow
 
+# "🗃️ ⁉ 👁️ 🕳️ 🪪 💩 🚫 🛰️ 📡 🌥️ 🗺"
+
 # The next 3 lines prove I'm a bad person.
 # pylint: disable=invalid-name
 # pylint: disable=too-many-lines
@@ -502,12 +504,7 @@ def readpreferences():
                 preference["mysection"] = preference["mysection"].upper()
         else:
             writepreferences()
-            curses.endwin()
-            print(
-                "\n\nA basic configuration file has been written to: ./fd_preferences.json"
-            )
-            print("Please edit this file and relaunch the program.\n\n")
-            sys.exit()
+
     except IOError as exception:
         logging.critical("readpreferences: %s", exception)
     logging.info(preference)
@@ -524,31 +521,16 @@ def readpreferences():
 
     if preference["useqrz"]:
         look_up = QRZlookup(preference["lookupusername"], preference["lookuppassword"])
-        # self.callbook_icon.setText("QRZ")
-        if look_up.session:
-            pass
-            # self.callbook_icon.setStyleSheet("color: rgb(128, 128, 0);")
-        else:
-            pass
-            # self.callbook_icon.setStyleSheet("color: rgb(136, 138, 133);")
 
     if preference["usehamdb"]:
         look_up = HamDBlookup()
-        # self.callbook_icon.setText("HamDB")
-        # self.callbook_icon.setStyleSheet("color: rgb(128, 128, 0);")
 
     if preference["usehamqth"]:
         look_up = HamQTH(
             preference["lookupusername"],
             preference["lookuppassword"],
         )
-        # self.callbook_icon.setText("HamQTH")
-        if look_up.session:
-            pass
-            # self.callbook_icon.setStyleSheet("color: rgb(128, 128, 0);")
-        else:
-            pass
-            # self.callbook_icon.setStyleSheet("color: rgb(136, 138, 133);")
+
     if look_up and preference["mycall"] != "CALL":
         _thethread = threading.Thread(
             target=lookupmygrid,
@@ -1347,8 +1329,10 @@ def statusline():
     if rigonline is False:
         stdscr.addstr(23, 58, "💢")
 
-    # if True:
-    #     stdscr.addstr(23, 55, "🌐")
+    if look_up and look_up.session:
+        stdscr.addstr(23, 55, "🌐")
+    else:
+        stdscr.addstr(23, 55, "🚫")
 
     stdscr.move(y, x)
 

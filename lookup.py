@@ -18,6 +18,7 @@ class HamDBlookup:
     def __init__(self) -> None:
         self.url = "https://api.hamdb.org/"
         self.error = None
+        self.session = True
 
     def lookup(self, call: str) -> tuple:
         """

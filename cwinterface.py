@@ -14,7 +14,7 @@ class CW:
 
     def sendcw(self, texttosend):
         """sends cw to k1el"""
-        logging.info("sendcw: %s", texttosend)
+        logging.info("%s", texttosend)
         if self.servertype == 2:
             self._sendcw_xmlrpc(texttosend)
         if self.servertype == 1:
@@ -22,22 +22,18 @@ class CW:
 
     def _sendcw_xmlrpc(self, texttosend):
         """sends cw to xmlrpc"""
-        logging.info("xmlrpc: %s", texttosend)
+        logging.info("%s", texttosend)
         with ServerProxy(f"http://{self.host}:{self.port}") as proxy:
             try:
                 proxy.k1elsendstring(texttosend)
             except Error as exception:
-                logging.info(
-                    "http://%s:%s, xmlrpc error: %s", self.host, self.port, exception
-                )
+                logging.info("http://%s:%s, error: %s", self.host, self.port, exception)
             except ConnectionRefusedError:
-                logging.info(
-                    "http://%s:%s, xmlrpc Connection Refused", self.host, self.port
-                )
+                logging.info("http://%s:%s, Connection Refused", self.host, self.port)
 
     def _sendcw_udp(self, texttosend):
         """send cw to udp port"""
-        logging.info("UDP: %s", texttosend)
+        logging.info("%s", texttosend)
         if self.port and self.host:
             server_address_port = (self.host, self.port)
             # bufferSize          = 1024

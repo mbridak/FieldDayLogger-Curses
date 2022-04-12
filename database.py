@@ -34,7 +34,7 @@ class DataBase:
                 cursor.execute(sql_table)
                 conn.commit()
         except sqlite3.Error as exception:
-            logging.critical("create_db: Unable to create database: %s", exception)
+            logging.critical("Unable to create database: %s", exception)
 
     def log_contact(self, logme: tuple) -> None:
         """
@@ -53,7 +53,7 @@ class DataBase:
                 cur.execute(sql, logme)
                 conn.commit()
         except sqlite3.Error as exception:
-            logging.debug("DataBase log_contact: %s", exception)
+            logging.critical("%s", exception)
 
     def delete_contact(self, contact) -> None:
         """Deletes a contact from the db."""
@@ -65,11 +65,11 @@ class DataBase:
                     cur.execute(sql)
                     conn.commit()
             except sqlite3.Error as exception:
-                logging.debug("DataBase delete_contact: %s", exception)
+                logging.warning("%s", exception)
 
     def change_contact(self, qso):
         """Update an existing contact."""
-        logging.info("change_contact: %s", qso)
+        logging.info("%s", qso)
         try:
             with sqlite3.connect(self.database) as conn:
                 sql = (
@@ -77,12 +77,12 @@ class DataBase:
                     f"section = '{qso[3]}', date_time = '{qso[4]}', band = '{qso[5]}', "
                     f"mode = '{qso[6]}', power = '{qso[7]}'  where id='{qso[0]}'"
                 )
-                logging.info("change_contact: %s", sql)
+                logging.info("%s", sql)
                 cur = conn.cursor()
                 cur.execute(sql)
                 conn.commit()
         except sqlite3.Error as exception:
-            logging.debug("DataBase change_contact: %s", exception)
+            logging.warning("%s", exception)
 
     def stats(self) -> tuple:
         """
@@ -111,7 +111,7 @@ class DataBase:
             lasthour = str(cursor.fetchone()[0])
             qrp, highpower = self.qrp_check()
             logging.info(
-                "DataBase stats: %s",
+                "%s",
                 (
                     cwcontacts,
                     phonecontacts,
@@ -152,7 +152,7 @@ class DataBase:
                 )
                 digital = str(cursor.fetchone()[0])
         except sqlite3.Error as exception:
-            logging.critical("DB-contacts_under_101watts: %s", exception)
+            logging.critical("%s", exception)
             return 0, 0, 0
         return c_dubs, phone, digital
 
@@ -184,7 +184,7 @@ class DataBase:
                 highpower = bool(list(log[0])[0])
                 qrp = not qrpc + qrpp + qrpd
         except sqlite3.Error as exception:
-            logging.info("qrpcheck: %s", exception)
+            logging.warning("%s", exception)
             return 0, 0
         return qrp, highpower
 
@@ -257,14 +257,14 @@ class DataBase:
 
     def contact_by_id(self, record) -> tuple:
         """returns a contact matching an id"""
-        logging.info("contact_by_id: record: %s", record)
+        logging.info("record: %s", record)
         try:
             with sqlite3.connect(self.database) as conn:
                 cursor = conn.cursor()
                 cursor.execute("select * from contacts where id=" + record)
                 return cursor.fetchone()
         except sqlite3.Error as err:
-            logging.critical("contact_by_id: %s", err)
+            logging.critical("%s", err)
 
     def get_grids(self) -> tuple:
         """returns a tuple of unique grids in the log."""

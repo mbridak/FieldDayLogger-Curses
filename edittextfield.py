@@ -125,7 +125,7 @@ class EditTextField:
     def toggle_state(self):
         """Toggles the logical state if it's a bool"""
         self.set_state(not self.my_state)
-        logging.debug("toggle state now: %s", self.my_state)
+        logging.debug("now: %s", self.my_state)
 
     def set_state(self, state):
         """Sets the boolean state"""

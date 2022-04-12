@@ -1388,16 +1388,17 @@ def displayHelp():
     """Displays help screen"""
     rectangle(stdscr, 11, 0, 21, 34)
     wy, wx = stdscr.getyx()
+    ######################################
     help_message = [
-        ".H this message  |.E### edit QSO",
-        ".Q quit program  |.D### del QSO",
-        ".Kyourcall       |.L Generate Log",
-        ".Cyourclass      |.S Settings",
-        ".Syoursection    |",
-        ".B## change bands|[esc] abort inp",
-        ".M[CW,PH,DI] mode|",
-        ".P## change power|",
-        "                 |",
+        ".H display this message",
+        ".S Settings screen",
+        ".Q quit the program",
+        ".E# edit a QSO",
+        ".D# delete a QSO",
+        ".B# change operating band",
+        ".M[CW,PH,DI] operating mode",
+        ".P## change logged power",
+        ".L Generate Logs and stats",
     ]
     stdscr.move(12, 1)
     for count, x in enumerate(help_message):

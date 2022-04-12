@@ -250,7 +250,7 @@ def lazy_lookup(acall: str):
         if contactlookup["grid"] and mygrid:
             contactlookup["distance"] = distance(mygrid, contactlookup["grid"])
             contactlookup["bearing"] = bearing(mygrid, contactlookup["grid"])
-            displayinfo(f"{contactlookup['name']}", line=1)
+            displayinfo(f"{contactlookup['name'][:33]}", line=1)
             displayinfo(
                 f"{contactlookup['grid']} "
                 f"{round(contactlookup['distance'])}km "
@@ -602,18 +602,20 @@ def read_sections():
 
 def section_check(sec):
     """Section check partial"""
+    y, x = stdscr.getyx()
     if sec == "":
         sec = "^"
     seccheckwindow = curses.newpad(20, 33)
     rectangle(stdscr, 11, 0, 21, 34)
-    x = list(secName.keys())
-    xx = list(filter(lambda y: y.startswith(sec), x))
+    snkeys = list(secName.keys())
+    xx = list(filter(lambda y: y.startswith(sec), snkeys))
     count = 0
     for xxx in xx:
         seccheckwindow.addstr(count, 1, secName[xxx])
         count += 1
     stdscr.refresh()
     seccheckwindow.refresh(0, 0, 12, 1, 20, 33)
+    stdscr.move(y, x)
 
 
 def readSCP():
@@ -1263,9 +1265,8 @@ def clearentry():
     hiscall = ""
     hissection = ""
     hisclass = ""
-    y, x = stdscr.getyx()
-    stdscr.addstr(9, 16, "  ")
-    stdscr.move(y, x)
+    stdscr.addstr(9, 16, "  ")  # clears lookup icon
+    rectangle(stdscr, 11, 0, 21, 34)  # clears info display
     inputFieldFocus = 0
     hissection_field.set_text("")
     hissection_field.get_focus()

@@ -39,9 +39,6 @@ Commands start with a period character in the callsign field and are immediately
 ```
 .H displays a short list of commands.
 .Q Quit the program.
-.Kyourcall Sets your callsign. .KK6GTE will set it to K6GTE.
-.Cyourclass Sets your class. .C1E will set your class to 1E.
-.Syoursection Sets your section. .SORG sets your section to ORG.
 .P# Sets the power level, .P5 will set the power to 5 watts.
 .MCW .MPH .MDI Sets the mode. CW Morse, PH Phone, DI Digital.
 .B# sets the band, .B40 for 40 meters.
@@ -53,18 +50,6 @@ Commands start with a period character in the callsign field and are immediately
 ```
 
 After the command is entered press the TAB key to execute it.
-
-For example, when I initially start the program I could enter the following:
-
-```
-.KK6GTE
-.C1B
-.SORG
-.P5
-.B40
-.MCW
-``` 
-This says I'm K6GTE 1B ORG, running 5 watts CW on 40 Meters.
 
 ## Initial Setup
 Before operating for the first time, you will need to edit the settings. Use the `.S` command to pull up the settings screen. You use the TAB and Shift TAB keys to move between the fields. Enter key to commit changes. Esc key to exit without saving.
@@ -87,6 +72,8 @@ If you run rigctld or flrig on the computer that you are logging from, the radio
 The macros are stored in the cwmacros_fd.txt file. The fields to edit are pretty straightforward. Each line has 3 fields separated by the pipe `|` character. The first is the Fkey being assigned. The second is a useless label. The third is the actual macro. the bits between the curly braces gets replaced by actual values
 
 `F1|Run CQ|cq fd {MYCALL} {MYCALL} k`
+
+You may run into a problem with your terminal program taking the F keys and doing things with them. For instance, Gnome-Terminal wanted to full screen the terminal when I pressed F11. I had to remap that to Shift+F11 in the terminal preference shortcuts. It also wanted to show a menu each time you pressed F10. That can be suppressed in the terminals preferences general section.
 
 #### Callsign lookups:
 An option of callsign lookups for gridsquare and op name is offered by one of three services: QRZ, HamDB or HamQTH. The use of these can be turned on or off by editing the JSON preference file. The lookup happens in it's own thread and is kicked off after the cursor leaves the call field. You'll see an indicator in the call field that the look up is in progress. 

@@ -1853,6 +1853,8 @@ def main(s):  # pylint: disable=unused-argument
     entry()
     logwindow()
     readpreferences()
+    if preference["mycall"].upper() == "CALL":
+        processcommand(" S")
     stats()
     displayHelp()
     cloudlogauth()

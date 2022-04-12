@@ -32,7 +32,7 @@ from pathlib import Path
 from shutil import copyfile
 from curses.textpad import rectangle
 from curses import wrapper
-from datetime import datetime
+from datetime import datetime, timedelta
 import threading
 import logging
 from json import loads, dumps
@@ -44,13 +44,14 @@ from cwinterface import CW
 from edittextfield import EditTextField
 from wsjtx_listener import WsjtxListener
 from settings import SettingsScreen
+from version import __version__
 
 
 if Path("./debug").exists():
     logging.basicConfig(
         filename="debug.log",
-        filemode="w",
-        format="%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s",
+        filemode="w+",
+        format="%(asctime)s,%(msecs)d %(module)s %(funcName)s %(lineno)d %(levelname)s %(message)s",
         datefmt="%H:%M:%S",
         level=logging.DEBUG,
     )
@@ -1266,7 +1267,7 @@ def clearentry():
     hissection = ""
     hisclass = ""
     stdscr.addstr(9, 16, "  ")  # clears lookup icon
-    rectangle(stdscr, 11, 0, 21, 34)  # clears info display
+    # rectangle(stdscr, 11, 0, 21, 34)  # clears info display
     inputFieldFocus = 0
     hissection_field.set_text("")
     hissection_field.get_focus()
@@ -1386,8 +1387,9 @@ def setsection(s):
 
 def displayHelp():
     """Displays help screen"""
-    rectangle(stdscr, 11, 0, 21, 34)
     wy, wx = stdscr.getyx()
+    scpwindow = curses.newpad(9, 33)
+    rectangle(stdscr, 11, 0, 21, 34)
     ######################################
     help_message = [
         ".H display this message",
@@ -1402,8 +1404,18 @@ def displayHelp():
     ]
     stdscr.move(12, 1)
     for count, x in enumerate(help_message):
-        stdscr.addstr(12 + count, 1, x)
+        scpwindow.addstr(count, 1, x)
+    stdscr.refresh()
+    scpwindow.refresh(0, 0, 12, 1, 20, 33)
     stdscr.move(wy, wx)
+
+
+def clearDisplayInfo():
+    """erases the displayinfo area of the screen"""
+    y, x = stdscr.getyx()
+    for line in range(0, 9):
+        stdscr.addstr(12 + line, 1, "                                 ")
+    stdscr.move(y, x)
     stdscr.refresh()
 
 
@@ -1514,6 +1526,7 @@ def proc_key(key):
         elif inputFieldFocus == 2:
             hissection = hissection_field.text()
         if hiscall[:1] == ".":  # process command
+            clearDisplayInfo()
             processcommand(hiscall)
             clearentry()
             return
@@ -1533,6 +1546,7 @@ def proc_key(key):
                 contactlookup["grid"],
                 contactlookup["name"],
             )
+            clearDisplayInfo()
             log_contact(contact)
             clearentry()
         else:
@@ -1540,6 +1554,7 @@ def proc_key(key):
         return
     elif key == Escape:
         clearentry()
+        clearDisplayInfo()
         return
     if key == 258:  # key down
         logup()
@@ -1850,7 +1865,7 @@ def main(s):  # pylint: disable=unused-argument
         daemon=True,
     )
     _ft8thread.start()
-
+    poll_time = datetime.now()
     while 1:
         statusline()
         stdscr.refresh()
@@ -1873,7 +1888,9 @@ def main(s):  # pylint: disable=unused-argument
             time.sleep(0.1)
         if end_program:
             break
-        poll_radio()
+        if datetime.now() > poll_time:
+            poll_radio()
+            poll_time = datetime.now() + timedelta(seconds=1)
 
 
 wrapper(main)

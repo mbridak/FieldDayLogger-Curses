@@ -43,8 +43,6 @@ from database import DataBase
 from cwinterface import CW
 from edittextfield import EditTextField
 from wsjtx_listener import WsjtxListener
-
-# from preferences import Preferences
 from settings import SettingsScreen
 
 
@@ -63,8 +61,8 @@ else:
 # If no preference file exists, one is created from this dictionary.
 preference = {
     "mycall": "Call",
-    "myclass": "Class",
-    "mysection": "Section",
+    "myclass": "",
+    "mysection": "",
     "power": "100",
     "altpower": 0,
     "usehamdb": 0,

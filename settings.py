@@ -144,9 +144,9 @@ class SettingsScreen:
             self.cloudlogapi,
             self.cloudlogurl,
             self.cloudlogstationid,
-            self.altpower,
             self.cwdaemon,
             self.pywinkeyer,
+            self.altpower,
             self.CW_IP,
             self.CW_port,
         ]

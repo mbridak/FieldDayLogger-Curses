@@ -219,7 +219,7 @@ def lookupmygrid():
     global mygrid
     if look_up:
         mygrid, _, _, _ = look_up.lookup(preference["mycall"])
-        logging.info("my grid: %s", mygrid)
+        logging.info("%s", mygrid)
 
 
 def lazy_lookup(acall: str):
@@ -435,7 +435,7 @@ def read_cw_macros():
         and hasattr(sys, "_MEIPASS")
         and not Path("./cwmacros_fd.txt").exists()
     ):
-        logging.info("read_cw_macros: copying default macro file.")
+        logging.info("copying default macro file.")
         copyfile(relpath("cwmacros_fd.txt"), "./cwmacros_fd.txt")
     with open("./cwmacros_fd.txt", "r", encoding="utf-8") as file_descriptor:
         for line in file_descriptor:
@@ -443,7 +443,7 @@ def read_cw_macros():
                 fkey, buttonname, cwtext = line.split("|")
                 fkeys[fkey.strip()] = (buttonname.strip(), cwtext.strip())
             except ValueError as err:
-                logging.info("read_cw_macros: %s", err)
+                logging.info("%s", err)
 
 
 def process_macro(macro):
@@ -490,14 +490,14 @@ def readpreferences():
     Restore preferences if they exist, otherwise create some sane defaults.
     """
     global preference, cat_control, look_up, cw
-    logging.info("readpreferences:")
+    logging.debug("")
     try:
         if os.path.exists("./fd_preferences.json"):
             with open(
                 "./fd_preferences.json", "rt", encoding="utf-8"
             ) as file_descriptor:
                 preference = loads(file_descriptor.read())
-                logging.info("reading: %s", preference)
+                logging.info("%s", preference)
                 preference["mycall"] = preference["mycall"].upper()
                 preference["myclass"] = preference["myclass"].upper()
                 preference["mysection"] = preference["mysection"].upper()
@@ -505,7 +505,7 @@ def readpreferences():
             writepreferences()
 
     except IOError as exception:
-        logging.critical("readpreferences: %s", exception)
+        logging.critical("%s", exception)
     logging.info(preference)
 
     cat_control = None
@@ -544,12 +544,12 @@ def writepreferences():
     Write preferences to json file.
     """
     try:
-        logging.info("writepreferences:")
+        logging.debug("")
         with open("./fd_preferences.json", "wt", encoding="utf-8") as file_descriptor:
             file_descriptor.write(dumps(preference, indent=4))
-            logging.info("writing: %s", preference)
+            logging.info("%s", preference)
     except IOError as exception:
-        logging.critical("writepreferences: %s", exception)
+        logging.critical("%s", exception)
 
 
 def log_contact(logme):
@@ -596,9 +596,9 @@ def read_sections():
                         partial = abbrev[: -i - 1]
                         secPartial[partial] = 1
                 except ValueError as exception:
-                    logging.warning("read_sections: %s", exception)
+                    logging.warning("%s", exception)
     except IOError as exception:
-        logging.critical("read_sections: read error: %s", exception)
+        logging.critical("read error: %s", exception)
 
 
 def section_check(sec):
@@ -1742,7 +1742,7 @@ def editQSO(q):
         return
     global qsoew, qso, end_program, qso_edit_fields, editFieldFocus
     log = db.contact_by_id(q)
-    logging.info("editQSO: record: %s, log: %s", q, log)
+    logging.info("record: %s, log: %s", q, log)
     if not log:
         return
     qso = ["", "", "", "", "", "", "", "", "", ""]

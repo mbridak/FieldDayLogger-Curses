@@ -24,7 +24,7 @@ class HamDBlookup:
         """
         Lookup a call on QRZ
         """
-        logging.info("Hamdblookup-lookup: %s", call)
+        logging.info("%s", call)
         grid = False
         name = False
         error_text = False
@@ -49,7 +49,7 @@ class HamDBlookup:
                     nickname = root.callsign.nickname.text
         else:
             error_text = str(query_result.status_code)
-        logging.info("HamDB-lookup: %s %s %s %s", grid, name, nickname, error_text)
+        logging.info("%s %s %s %s", grid, name, nickname, error_text)
         return grid, name, nickname, error_text
 
 
@@ -78,7 +78,7 @@ class QRZlookup:
         Error messages returned by QRZ will be in class variable 'error'
         Other messages returned will be in class variable 'message'
         """
-        logging.info("QRZlookup-getsession:")
+        logging.info("")
         self.error = False
         self.message = False
         self.session = False
@@ -95,13 +95,13 @@ class QRZlookup:
             if root.session.find("message"):
                 self.message = root.session.message.text
             logging.info(
-                "QRZlookup-getsession: key:%s error:%s message:%s",
+                "key:%s error:%s message:%s",
                 self.session,
                 self.error,
                 self.message,
             )
         except requests.exceptions.RequestException as exception:
-            logging.info("QRZlookup-getsession: %s", exception)
+            logging.info("%s", exception)
             self.session = False
             self.error = f"{exception}"
 
@@ -109,7 +109,7 @@ class QRZlookup:
         """
         Lookup a call on QRZ
         """
-        logging.info("QRZlookup-lookup: %s", call)
+        logging.debug("%s", call)
         grid = False
         name = False
         error_text = False
@@ -119,7 +119,7 @@ class QRZlookup:
             query_result = requests.get(self.qrzurl, params=payload, timeout=10.0)
             root = bs(query_result.text, "html.parser")
             if not root.session.key:  # key expired get a new one
-                logging.info("QRZlookup-lookup: no key, getting new one.")
+                logging.info("no key, getting new one.")
                 self.getsession()
                 if self.session:
                     payload = {"s": self.session, "callsign": call}
@@ -134,7 +134,7 @@ class QRZlookup:
         Returns gridsquare and name for a callsign looked up by qrz or hamdb.
         Or False for both if none found or error.
         """
-        logging.info("QRZlookup-parse_lookup:")
+        logging.debug("")
         grid = False
         name = False
         error_text = False
@@ -156,9 +156,7 @@ class QRZlookup:
                         name = f"{name} {root.find('name').string}"
                 if root.callsign.find("nickname"):
                     nickname = root.callsign.nickname.text
-        logging.info(
-            "QRZlookup-parse_lookup: %s %s %s %s", grid, name, nickname, error_text
-        )
+        logging.info("%s %s %s %s", grid, name, nickname, error_text)
         return grid, name, nickname, error_text
 
 
@@ -176,20 +174,20 @@ class HamQTH:
 
     def getsession(self) -> None:
         """get a session key"""
-        logging.info("HamQTH-getsession:")
+        logging.debug("")
         self.error = False
         # self.message = False
         self.session = False
         payload = {"u": self.username, "p": self.password}
         query_result = requests.get(self.url, params=payload, timeout=10.0)
-        logging.info("hamqth-getsession:%s", query_result.status_code)
+        logging.info("%s", query_result.status_code)
         root = bs(query_result.text, "html.parser")
         if root.find("session"):
             if root.session.find("session_id"):
                 self.session = root.session.session_id.text
             if root.session.find("error"):
                 self.error = root.session.error.text
-        logging.info("hamqth session: %s", self.session)
+        logging.info("%s", self.session)
 
     def lookup(self, call: str) -> tuple:
         """
@@ -199,7 +197,7 @@ class HamQTH:
         if self.session:
             payload = {"id": self.session, "callsign": call, "prg": "wfd_curses"}
             query_result = requests.get(self.url, params=payload, timeout=10.0)
-            logging.info("lookup resultcode: %s", query_result.status_code)
+            logging.info("resultcode: %s", query_result.status_code)
             root = bs(query_result.text, "html.parser")
             if not root.find("search"):
                 if root.find("session"):

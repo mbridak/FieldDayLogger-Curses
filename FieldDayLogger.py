@@ -1529,7 +1529,7 @@ def proc_key(key):
                 hissection,
                 band,
                 mode,
-                int(preference.preference["power"]),
+                int(preference["power"]),
                 contactlookup["grid"],
                 contactlookup["name"],
             )
@@ -1698,7 +1698,7 @@ def EditClickedQSO(line):
     qsoew.addstr(4, 1, "At     : ")
     qsoew.addstr(5, 1, "Band   : ")
     qsoew.addstr(6, 1, "Mode   : ")
-    qsoew.addstr(7, 1, "Powers : ")
+    qsoew.addstr(7, 1, "Power  : ")
     qsoew.addstr(8, 1, "[Enter] to save          [Esc] to exit")
 
     for displayme in qso_edit_fields:
@@ -1772,7 +1772,7 @@ def editQSO(q):
     qsoew.addstr(4, 1, f"At     : {qso[4]}")
     qsoew.addstr(5, 1, f"Band   : {qso[5]}")
     qsoew.addstr(6, 1, f"Mode   : {qso[6]}")
-    qsoew.addstr(7, 1, f"Powers : {qso[7]}")
+    qsoew.addstr(7, 1, f"Power  : {qso[7]}")
     qsoew.addstr(8, 1, "[Enter] to save          [Esc] to exit")
 
     for displayme in qso_edit_fields:

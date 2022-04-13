@@ -64,9 +64,9 @@ Okay you've made a contact. Enter the call in the call field. As you type it in,
 ## Features
 
 #### Radio Polling via rigctld or flrig
-If you run rigctld or flrig on the computer that you are logging from, the radio will be polled for band/mode updates automatically. There is an indicator at the bottom of the logging window to indicate polling status. Dim if no connection or timeout, and highlighted if all okay.
+If you run rigctld or flrig on the computer that you are logging from, the radio will be polled for band/mode updates automatically. There is an indicator at the bottom of the logging window to indicate polling status. :anger: if no connection or timeout, and :radio: if all okay.
 
-![Alt text](https://github.com/mbridak/FieldDayLogger-Curses/raw/master/pics/rigctld.png)
+![Alt text](pics/rigctld.png)
 
 #### CW macros
 The macros are stored in the cwmacros_fd.txt file. The fields to edit are pretty straightforward. Each line has 3 fields separated by the pipe `|` character. The first is the Fkey being assigned. The second is a useless label. The third is the actual macro. the bits between the curly braces gets replaced by actual values

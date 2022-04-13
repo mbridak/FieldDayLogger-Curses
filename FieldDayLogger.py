@@ -51,7 +51,10 @@ if Path("./debug").exists():
     logging.basicConfig(
         filename="debug.log",
         filemode="w+",
-        format="[%(asctime)s] %(levelname)s %(module)s - %(funcName)s Line %(lineno)d:\n%(message)s",
+        format=(
+            "[%(asctime)s] %(levelname)s %(module)s - "
+            "%(funcName)s Line %(lineno)d:\n%(message)s"
+        ),
         datefmt="%H:%M:%S",
         level=logging.DEBUG,
     )

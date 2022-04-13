@@ -51,7 +51,7 @@ if Path("./debug").exists():
     logging.basicConfig(
         filename="debug.log",
         filemode="w+",
-        format="%(asctime)s,%(msecs)d %(module)s %(funcName)s %(lineno)d %(levelname)s %(message)s",
+        format="[%(asctime)s] %(levelname)s %(module)s - %(funcName)s Line %(lineno)d:\n%(message)s",
         datefmt="%H:%M:%S",
         level=logging.DEBUG,
     )
@@ -97,7 +97,7 @@ contactlookup = {
     "error": "",
     "distance": "",
 }
-
+os.environ.setdefault("ESCDELAY", "25")
 stdscr = curses.initscr()
 height, width = stdscr.getmaxyx()
 hiscall_field = EditTextField(stdscr, y=9, x=1, length=14)
@@ -517,6 +517,8 @@ def readpreferences():
     cw = None
     if preference["cwtype"]:
         cw = CW(preference["cwtype"], preference["CW_IP"], preference["CW_port"])
+
+    look_up = None
 
     if preference["useqrz"]:
         look_up = QRZlookup(preference["lookupusername"], preference["lookuppassword"])
@@ -1263,17 +1265,19 @@ def entry():
 def clearentry():
     """Clear text entry fields"""
     global inputFieldFocus, hiscall, hissection, hisclass
+    logging.debug("")
     hiscall = ""
     hissection = ""
     hisclass = ""
-    stdscr.addstr(9, 16, "  ")  # clears lookup icon
-    # rectangle(stdscr, 11, 0, 21, 34)  # clears info display
+    # clear input fields
+    stdscr.addstr(9, 1, "                ")
+    stdscr.addstr(9, 20, "     ")
+    stdscr.addstr(9, 27, "       ")
+    stdscr.refresh()
     inputFieldFocus = 0
-    hissection_field.set_text("")
-    hissection_field.get_focus()
-    hisclass_field.set_text("")
-    hisclass_field.get_focus()
-    hiscall_field.set_text("")
+    hissection_field.clearfield()
+    hisclass_field.clearfield()
+    hiscall_field.clearfield()
     hiscall_field.get_focus()
     clearcontactlookup()
 
@@ -1329,11 +1333,13 @@ def statusline():
     if rigonline is False:
         stdscr.addstr(23, 58, "💢")
 
-    if look_up and look_up.session:
-        stdscr.addstr(23, 55, "🌐")
+    if look_up:
+        if look_up.session:
+            stdscr.addstr(23, 55, "🌐")
+        else:
+            stdscr.addstr(23, 55, "🚫")
     else:
-        stdscr.addstr(23, 55, "🚫")
-
+        stdscr.addstr(23, 55, "  ")
     stdscr.move(y, x)
 
 
@@ -1493,6 +1499,10 @@ def proc_key(key):
     """Process raw key presses"""
     global inputFieldFocus, hiscall, hissection, hisclass  # Globals bad m-kay
     input_field = [hiscall_field, hisclass_field, hissection_field]
+    if key == Escape:
+        clearentry()
+        clearDisplayInfo()
+        return
     if key == 9 or key == Space:
         inputFieldFocus += 1
         if inputFieldFocus > 2:
@@ -1507,11 +1517,17 @@ def proc_key(key):
             if hiscall != hiscall_field.text():
                 if len(hiscall_field.text()) > 2 and hiscall_field.text()[:1] != ".":
                     dupCheck(hiscall_field.text())
-                    logging.debug("Call the lazy")
-                    x = threading.Thread(
-                        target=lazy_lookup, args=(hiscall_field.text(),), daemon=True
-                    )
-                    x.start()
+                    if look_up:
+                        if not look_up.session:
+                            look_up.getsession()
+                        if look_up.session:
+                            logging.debug("Call the lazy")
+                            x = threading.Thread(
+                                target=lazy_lookup,
+                                args=(hiscall_field.text(),),
+                                daemon=True,
+                            )
+                            x.start()
                 hiscall = hiscall_field.text()
             hisclass_field.get_focus()
         if inputFieldFocus == 2:
@@ -1551,10 +1567,6 @@ def proc_key(key):
             clearentry()
         else:
             setStatusMsg("Must be valid call sign")
-        return
-    elif key == Escape:
-        clearentry()
-        clearDisplayInfo()
         return
     if key == 258:  # key down
         logup()
@@ -1869,7 +1881,6 @@ def main(s):  # pylint: disable=unused-argument
     _ft8thread.start()
     poll_time = datetime.now()
     while 1:
-        statusline()
         stdscr.refresh()
         ch = stdscr.getch()
         if ch == curses.KEY_MOUSE:
@@ -1887,10 +1898,11 @@ def main(s):  # pylint: disable=unused-argument
         elif ch != -1:
             proc_key(ch)
         else:
-            time.sleep(0.1)
+            time.sleep(0.01)
         if end_program:
             break
         if datetime.now() > poll_time:
+            statusline()
             poll_radio()
             poll_time = datetime.now() + timedelta(seconds=1)
 

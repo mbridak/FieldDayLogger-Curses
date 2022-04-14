@@ -46,7 +46,6 @@ from wsjtx_listener import WsjtxListener
 from settings import SettingsScreen
 from version import __version__
 
-
 if Path("./debug").exists():
     logging.basicConfig(
         filename="debug.log",
@@ -1306,6 +1305,7 @@ def setStatusMsg(msg):
 def statusline():
     """shows status line at bottom of screen"""
     y, x = stdscr.getyx()
+    stdscr.addstr(22, 1, f"v{__version__}")
     now = datetime.now().isoformat(" ")[5:19].replace("-", "/")
     utcnow = datetime.utcnow().isoformat(" ")[5:19].replace("-", "/")
     try:

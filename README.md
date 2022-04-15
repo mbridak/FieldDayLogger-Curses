@@ -8,7 +8,7 @@ The log is stored in an sqlite3 database file 'FieldDay.db'. If you need to wipe
 
 You may have to install Tkinter. It's used for clipboard access.
 
-`sudo apt-get install python3-tk`
+`sudo apt install python3-tk python3-bs4 python3-lxml`
 
 Then make FieldDayLogger.py executable and run it within the same folder.
 
@@ -76,21 +76,9 @@ The macros are stored in the cwmacros_fd.txt file. The fields to edit are pretty
 You may run into a problem with your terminal program taking the F keys and doing things with them. For instance, Gnome-Terminal wanted to full screen the terminal when I pressed F11. I had to remap that to Shift+F11 in the terminal preference shortcuts. It also wanted to show a menu each time you pressed F10. That can be suppressed in the terminals preferences general section.
 
 #### Callsign lookups:
-An option of callsign lookups for gridsquare and op name is offered by one of three services: QRZ, HamDB or HamQTH. The use of these can be turned on or off by editing the JSON preference file. The lookup happens in it's own thread and is kicked off after the cursor leaves the call field. You'll see an indicator in the call field that the look up is in progress. 
-
-![lookup waiting](pics/lookup-wait.png) 
-
-If the look up is successful, the icon in the call field will change.
-
-![lookup good](pics/lookup-good.png)
-
-And you'll see the status line at the bottom change giving you name, grid, bearing and distance to contact.
+An option of callsign lookups for gridsquare and op name is offered by one of three services: QRZ, HamDB or HamQTH. The use of these can be turned on or off by editing the JSON preference file. The lookup happens in it's own thread and is kicked off after the cursor leaves the call field. If the look up is successful, you'll see the status line at the bottom change giving you name, grid, bearing and distance to contact.
 
 ![lookup result](pics/lookup-result.png)
-
-If the lookup fails. you will see:
-
-![lookup failed](pics/lookup-failed.png)
 
 #### WSJT-X FT8
 We monitor the multicast address used by wsjt-x for UDP packets. If the packet says we've made a contact, we automatically add the contact to the Field Day log.

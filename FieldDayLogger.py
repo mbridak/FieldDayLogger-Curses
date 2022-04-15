@@ -87,6 +87,8 @@ preference = {
     "CW_IP": "localhost",
     "CW_port": 6789,
 }
+# incase preference becomes corrupt make a backup.
+reference_preference = preference.copy()
 
 ft8_watcher = WsjtxListener()
 
@@ -229,9 +231,6 @@ def lazy_lookup(acall: str):
     if look_up:
         if acall == contactlookup["call"]:
             return
-        y, x = stdscr.getyx()
-        stdscr.addstr(9, 16, "💤")
-        stdscr.move(y, x)
         contactlookup["call"] = acall
         (
             contactlookup["grid"],
@@ -240,14 +239,7 @@ def lazy_lookup(acall: str):
             contactlookup["error"],
         ) = look_up.lookup(acall)
         if contactlookup["name"] == "NOT_FOUND NOT_FOUND":
-            y, x = stdscr.getyx()
-            stdscr.addstr(9, 16, "💢")
-            stdscr.move(y, x)
             contactlookup["name"] = "NOT_FOUND"
-        else:
-            y, x = stdscr.getyx()
-            stdscr.addstr(9, 16, "🌐")
-            stdscr.move(y, x)
         if contactlookup["grid"] == "NOT_FOUND":
             contactlookup["grid"] = ""
         if contactlookup["grid"] and mygrid:
@@ -509,38 +501,46 @@ def readpreferences():
     except IOError as exception:
         logging.critical("%s", exception)
     logging.info(preference)
-
     cat_control = None
-    if preference["useflrig"]:
-        cat_control = CAT("flrig", preference["CAT_ip"], preference["CAT_port"])
-    if preference["userigctld"]:
-        cat_control = CAT("rigctld", preference["CAT_ip"], preference["CAT_port"])
-
     cw = None
-    if preference["cwtype"]:
-        cw = CW(preference["cwtype"], preference["CW_IP"], preference["CW_port"])
-
     look_up = None
+    try:
 
-    if preference["useqrz"]:
-        look_up = QRZlookup(preference["lookupusername"], preference["lookuppassword"])
+        if preference["useflrig"]:
+            cat_control = CAT("flrig", preference["CAT_ip"], preference["CAT_port"])
+        if preference["userigctld"]:
+            cat_control = CAT("rigctld", preference["CAT_ip"], preference["CAT_port"])
 
-    if preference["usehamdb"]:
-        look_up = HamDBlookup()
+        if preference["cwtype"]:
+            cw = CW(preference["cwtype"], preference["CW_IP"], preference["CW_port"])
 
-    if preference["usehamqth"]:
-        look_up = HamQTH(
-            preference["lookupusername"],
-            preference["lookuppassword"],
-        )
+        if preference["useqrz"]:
+            look_up = QRZlookup(
+                preference["lookupusername"], preference["lookuppassword"]
+            )
 
-    if look_up and preference["mycall"] != "CALL":
-        _thethread = threading.Thread(
-            target=lookupmygrid,
-            daemon=True,
-        )
-        _thethread.start()
-    cloudlogauth()
+        if preference["usehamdb"]:
+            look_up = HamDBlookup()
+
+        if preference["usehamqth"]:
+            look_up = HamQTH(
+                preference["lookupusername"],
+                preference["lookuppassword"],
+            )
+
+        if look_up and preference["mycall"] != "CALL":
+            _thethread = threading.Thread(
+                target=lookupmygrid,
+                daemon=True,
+            )
+            _thethread.start()
+        cloudlogauth()
+    except KeyError as err:
+        logging.warning("Corrupt preference, %s, loading clean version.", err)
+        preference = reference_preference.copy()
+        with open("./fd_preferences.json", "wt", encoding="utf-8") as file_descriptor:
+            file_descriptor.write(dumps(preference, indent=4))
+            logging.info("writing: %s", preference)
 
 
 def writepreferences():
@@ -1271,15 +1271,14 @@ def clearentry():
     hiscall = ""
     hissection = ""
     hisclass = ""
-    # clear input fields
-    stdscr.addstr(9, 1, "                ")
-    stdscr.addstr(9, 20, "     ")
-    stdscr.addstr(9, 27, "       ")
-    stdscr.refresh()
+    stdscr.addstr(9, 15, "  ")
+    # stdscr.refresh()
     inputFieldFocus = 0
-    hissection_field.clearfield()
-    hisclass_field.clearfield()
-    hiscall_field.clearfield()
+    hissection_field.set_text("")
+    hissection_field.get_focus()
+    hisclass_field.set_text("")
+    hisclass_field.get_focus()
+    hiscall_field.set_text("")
     hiscall_field.get_focus()
     clearcontactlookup()
 

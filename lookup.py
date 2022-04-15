@@ -31,7 +31,7 @@ class HamDBlookup:
         nickname = False
         query_result = requests.get(self.url + call + "/xml/wfd_logger", timeout=10.0)
         if query_result.status_code == 200:
-            root = bs(query_result.text, "html.parser")
+            root = bs(query_result.text, "xml")
             if root.messages.find("status"):
                 error_text = root.messages.status.text
                 self.error = error_text
@@ -85,7 +85,7 @@ class QRZlookup:
         try:
             payload = {"username": self.username, "password": self.password}
             query_result = requests.get(self.qrzurl, params=payload, timeout=10.0)
-            root = bs(query_result.text, "html.parser")
+            root = bs(query_result.text, "xml")
             if root.session.find("key"):
                 self.session = root.session.key.text
             if root.session.find("subexp"):
@@ -117,7 +117,7 @@ class QRZlookup:
         if self.session:
             payload = {"s": self.session, "callsign": call}
             query_result = requests.get(self.qrzurl, params=payload, timeout=10.0)
-            root = bs(query_result.text, "html.parser")
+            root = bs(query_result.text, "xml")
             if not root.session.key:  # key expired get a new one
                 logging.info("no key, getting new one.")
                 self.getsession()
@@ -140,7 +140,7 @@ class QRZlookup:
         error_text = False
         nickname = False
         if query_result.status_code == 200:
-            root = bs(query_result.text, "html.parser")
+            root = bs(query_result.text, "xml")
             if root.session.find("error"):
                 error_text = root.session.error.text
                 self.error = error_text
@@ -181,7 +181,7 @@ class HamQTH:
         payload = {"u": self.username, "p": self.password}
         query_result = requests.get(self.url, params=payload, timeout=10.0)
         logging.info("%s", query_result.status_code)
-        root = bs(query_result.text, "html.parser")
+        root = bs(query_result.text, "xml")
         if root.find("session"):
             if root.session.find("session_id"):
                 self.session = root.session.session_id.text
@@ -198,7 +198,7 @@ class HamQTH:
             payload = {"id": self.session, "callsign": call, "prg": "wfd_curses"}
             query_result = requests.get(self.url, params=payload, timeout=10.0)
             logging.info("resultcode: %s", query_result.status_code)
-            root = bs(query_result.text, "html.parser")
+            root = bs(query_result.text, "xml")
             if not root.find("search"):
                 if root.find("session"):
                     if root.session.find("error"):
@@ -222,7 +222,7 @@ class HamQTH:
         Or False for both if none found or error.
         """
         grid, name, nickname, error_text = False, False, False, False
-        root = bs(query_result.text, "html.parser")
+        root = bs(query_result.text, "xml")
         if root.find("session"):
             if root.session.find("error"):
                 error_text = root.session.error.text

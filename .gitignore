@@ -12,3 +12,4 @@ dist
 README.md.backup
 debug
 debug.log
+build/*

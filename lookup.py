@@ -16,12 +16,13 @@ class HamDBlookup:
     """
 
     def __init__(self) -> None:
+        self.session = True
         self.url = "https://api.hamdb.org/"
         self.error = False
 
     def lookup(self, call: str) -> tuple:
         """
-        Lookup a call on QRZ
+        Lookup a call on HamDB
 
         <?xml version="1.0" encoding="utf-8"?>
         <hamdb version="1.0">

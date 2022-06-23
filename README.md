@@ -69,12 +69,21 @@ If you run rigctld or flrig on the computer that you are logging from, the radio
 
 ![Alt text](pics/rigctld.png)
 
+If you're running this in a Raspberry Pi terminal, you may not get the emoji status icons. You may need to install "no tofu" fonts. I believe `sudo apt install fonts-noto` should install them.
+
+
 #### CW macros
 The macros are stored in the cwmacros_fd.txt file. The fields to edit are pretty straightforward. Each line has 3 fields separated by the pipe `|` character. The first is the Fkey being assigned. The second is a useless label. The third is the actual macro. the bits between the curly braces gets replaced by actual values
 
 `F1|Run CQ|cq fd {MYCALL} {MYCALL} k`
 
-You may run into a problem with your terminal program taking the F keys and doing things with them. For instance, Gnome-Terminal wanted to full screen the terminal when I pressed F11. I had to remap that to Shift+F11 in the terminal preference shortcuts. It also wanted to show a menu each time you pressed F10. That can be suppressed in the terminals preferences general section.
+You may run into a problem with your terminal program taking the F keys and doing things with them.
+For instance, Gnome-Terminal wanted to full screen the terminal when I pressed F11.
+I had to remap that to Shift+F11 in the terminal preference shortcuts.
+It also wanted to show a menu each time you pressed F10.
+That can be suppressed in the terminals preferences general section.
+
+If you're using cwdaemon you can change the cw sending speed by pressing + or -.
 
 #### Callsign lookups:
 An option of callsign lookups for gridsquare and op name is offered by one of three services: QRZ, HamDB or HamQTH. The use of these can be turned on or off by editing the JSON preference file. The lookup happens in it's own thread and is kicked off after the cursor leaves the call field. If the look up is successful, you'll see the status line at the bottom change giving you name, grid, bearing and distance to contact.

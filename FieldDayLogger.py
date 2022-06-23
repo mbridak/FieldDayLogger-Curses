@@ -221,14 +221,14 @@ def clearcontactlookup():
 def lookupmygrid():
     """lookup my own gridsquare"""
     global mygrid
-    if look_up:
+    if look_up and has_internet():
         mygrid, _, _, _ = look_up.lookup(preference["mycall"])
         logging.info("%s", mygrid)
 
 
 def lazy_lookup(acall: str):
     """El Lookup De Lazy"""
-    if look_up:
+    if look_up and has_internet():
         if acall == contactlookup["call"]:
             return
         contactlookup["call"] = acall
@@ -477,6 +477,16 @@ def check_function_keys(key):
             cw.sendcw(process_macro(fkeys["F11"][1]))
         elif key == curses.KEY_F12 and "F12" in fkeys:
             cw.sendcw(process_macro(fkeys["F12"][1]))
+        elif key == 43 and cw.servertype == 1:
+            cw.speed += 1
+            cw.sendcw(f"\x1b2{cw.speed}")
+            statusline()
+        elif key == 45 and cw.servertype ==1:
+            cw.speed -= 1
+            if cw.speed < 5:
+                cw.speed = 5
+            cw.sendcw(f"\x1b2{cw.speed}")
+            statusline()
 
 
 def readpreferences():
@@ -513,6 +523,9 @@ def readpreferences():
 
         if preference["cwtype"]:
             cw = CW(preference["cwtype"], preference["CW_IP"], preference["CW_port"])
+            cw.speed = 20
+            if preference["cwtype"] == 1:
+                cw.sendcw("\x1b220")
 
         if preference["useqrz"]:
             look_up = QRZlookup(
@@ -1317,7 +1330,13 @@ def statusline():
 
     stdscr.addstr(23, 1, "Band:        Mode:")
     stdscr.addstr(23, 7, f"  {band}  ", curses.A_REVERSE)
-    stdscr.addstr(23, 20, f"  {mode}  ", curses.A_REVERSE)
+    if cw is not None:
+        if cw.servertype == 1:
+            stdscr.addstr(23, 20, f"{mode} {cw.speed} ", curses.A_REVERSE)
+        else:
+            stdscr.addstr(23, 20, f"  {mode}  ", curses.A_REVERSE)
+    else:
+        stdscr.addstr(23, 20, f"  {mode}  ", curses.A_REVERSE)
     stdscr.addstr(23, 27, "                            ")
     stdscr.addstr(
         23,
@@ -1570,10 +1589,10 @@ def proc_key(key):
         else:
             setStatusMsg("Must be valid call sign")
         return
-    if key == 258:  # key down
+    if key == curses.KEY_DOWN:  # key down
         logup()
         return
-    if key == 259:  # key up
+    if key == curses.KEY_UP:  # key up
         logdown()
         return
     if key == 338:  # page down

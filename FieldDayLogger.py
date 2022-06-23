@@ -1523,6 +1523,9 @@ def proc_key(key):
     if key == Escape:
         clearentry()
         clearDisplayInfo()
+        if cw is not None: # abort cw output
+            if cw.servertype == 1:
+                cw.sendcw("\x1b4")
         return
     if key == 9 or key == Space:
         inputFieldFocus += 1

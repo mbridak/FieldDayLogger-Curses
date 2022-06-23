@@ -84,6 +84,7 @@ It also wanted to show a menu each time you pressed F10.
 That can be suppressed in the terminals preferences general section.
 
 If you're using cwdaemon you can change the cw sending speed by pressing + or -.
+You can abort CW output by pressing `ESC`. 
 
 #### Callsign lookups:
 An option of callsign lookups for gridsquare and op name is offered by one of three services: QRZ, HamDB or HamQTH. The use of these can be turned on or off by editing the JSON preference file. The lookup happens in it's own thread and is kicked off after the cursor leaves the call field. If the look up is successful, you'll see the status line at the bottom change giving you name, grid, bearing and distance to contact.

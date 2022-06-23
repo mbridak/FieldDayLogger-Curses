@@ -29,6 +29,7 @@ This is a simple logger meant for single op. It's not usable for clubs, there is
 * Improved text entry and editing.
 * Added auto-logging of FT8 contacts made with wsjt-x.
 * Added a proper settings screen.
+* Pressing +/- changes cw sending speed with cwdaemon.
 
 
 # The basic functionality

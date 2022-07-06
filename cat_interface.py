@@ -39,6 +39,9 @@ class CAT:
         if self.interface == "rigctld":
             vfo = self.__getvfo_rigctld()
             logging.info("%s", vfo)
+            if vfo == "RPRT -1":
+                vfo = ""
+                self.rigctrlsocket = None
         return vfo
 
     def __getvfo_flrig(self) -> str:

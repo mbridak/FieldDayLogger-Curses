@@ -1331,7 +1331,7 @@ def statusline():
     stdscr.addstr(23, 1, "Band:        Mode:")
     stdscr.addstr(23, 7, f"  {band}  ", curses.A_REVERSE)
     if cw is not None:
-        if cw.servertype == 1:
+        if cw.servertype == 1 and mode == "CW":
             stdscr.addstr(23, 20, f"{mode} {cw.speed} ", curses.A_REVERSE)
         else:
             stdscr.addstr(23, 20, f"  {mode}  ", curses.A_REVERSE)

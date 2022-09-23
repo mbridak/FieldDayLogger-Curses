@@ -481,7 +481,7 @@ def check_function_keys(key):
             cw.speed += 1
             cw.sendcw(f"\x1b2{cw.speed}")
             statusline()
-        elif key == 45 and cw.servertype ==1:
+        elif key == 45 and cw.servertype == 1:
             cw.speed -= 1
             if cw.speed < 5:
                 cw.speed = 5
@@ -1523,7 +1523,7 @@ def proc_key(key):
     if key == Escape:
         clearentry()
         clearDisplayInfo()
-        if cw is not None: # abort cw output
+        if cw is not None:  # abort cw output
             if cw.servertype == 1:
                 cw.sendcw("\x1b4")
         return
@@ -1874,9 +1874,9 @@ def main(s):  # pylint: disable=unused-argument
         curses.init_color(curses.COLOR_MAGENTA, 1000, 640, 0)
         curses.init_color(curses.COLOR_BLACK, 0, 0, 0)
         curses.init_color(curses.COLOR_CYAN, 500, 500, 500)
-        curses.init_pair(1, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
-        curses.init_pair(2, curses.COLOR_RED, curses.COLOR_BLACK)
-        curses.init_pair(3, curses.COLOR_CYAN, curses.COLOR_BLACK)
+        curses.init_pair(1, curses.COLOR_MAGENTA, -1)
+        curses.init_pair(2, curses.COLOR_RED, -1)
+        curses.init_pair(3, curses.COLOR_CYAN, -1)
     curses.noecho()
     curses.cbreak()
     stdscr.keypad(True)

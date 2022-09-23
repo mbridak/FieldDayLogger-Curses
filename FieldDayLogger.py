@@ -37,14 +37,14 @@ import threading
 import logging
 from json import loads, dumps
 import requests
-from cat_interface import CAT
-from lookup import HamDBlookup, HamQTH, QRZlookup
-from database import DataBase
-from cwinterface import CW
-from edittextfield import EditTextField
-from wsjtx_listener import WsjtxListener
-from settings import SettingsScreen
-from version import __version__
+from lib.cat_interface import CAT
+from lib.lookup import HamDBlookup, HamQTH, QRZlookup
+from lib.database import DataBase
+from lib.cwinterface import CW
+from lib.edittextfield import EditTextField
+from lib.wsjtx_listener import WsjtxListener
+from lib.settings import SettingsScreen
+from lib.version import __version__
 
 if Path("./debug").exists():
     logging.basicConfig(
@@ -598,7 +598,9 @@ def read_sections():
     Reads in the ARRL sections into some internal dictionaries.
     """
     try:
-        with open(relpath("arrl_sect.dat"), "r", encoding="utf-8") as file_descriptor:
+        with open(
+            relpath("./data/arrl_sect.dat"), "r", encoding="utf-8"
+        ) as file_descriptor:
             while 1:
                 line = file_descriptor.readline().strip()  # read a line and put in db
                 if not line:
@@ -639,7 +641,7 @@ def section_check(sec):
 def readSCP():
     """read section check partial file"""
     global scp
-    f = open(relpath("MASTER.SCP"), "r", encoding="utf-8")
+    f = open(relpath("./data/MASTER.SCP"), "r", encoding="utf-8")
     scp = f.readlines()
     f.close()
     scp = list(map(lambda x: x.strip(), scp))

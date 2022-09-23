@@ -4,7 +4,7 @@
 
 import curses
 import time
-from edittextfield import EditTextField
+from lib.edittextfield import EditTextField
 
 
 class SettingsScreen:

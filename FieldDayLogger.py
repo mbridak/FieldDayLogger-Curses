@@ -245,12 +245,12 @@ def lazy_lookup(acall: str):
         if contactlookup["grid"] and mygrid:
             contactlookup["distance"] = distance(mygrid, contactlookup["grid"])
             contactlookup["bearing"] = bearing(mygrid, contactlookup["grid"])
-            displayinfo(f"{contactlookup['name'][:33]}", line=1)
-            displayinfo(
-                f"{contactlookup['grid']} "
-                f"{round(contactlookup['distance'])}km "
-                f"{round(contactlookup['bearing'])}deg"
-            )
+            # displayinfo(f"{contactlookup['name'][:33]}", line=1)
+            # displayinfo(
+            #     f"{contactlookup['grid']} "
+            #     f"{round(contactlookup['distance'])}km "
+            #     f"{round(contactlookup['bearing'])}deg"
+            # )
         logging.info("%s", contactlookup)
 
 

@@ -21,5 +21,9 @@
     "markerfile": ".xplanet/markers/ham",
     "cwtype": 0,
     "CW_IP": "localhost",
-    "CW_port": 6789
+    "CW_port": 6789,
+    "useserver": 0,
+    "multicast_group": "224.1.1.1",
+    "multicast_port": "2239",
+    "interface_ip": "0.0.0.0"
 }

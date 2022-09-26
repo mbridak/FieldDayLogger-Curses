@@ -90,7 +90,7 @@ preference = {
     "cwtype": 0,
     "CW_IP": "localhost",
     "CW_port": 6789,
-    "useserver": 1,
+    "useserver": 0,
     "multicast_group": "224.1.1.1",
     "multicast_port": "2239",
     "interface_ip": "0.0.0.0",
@@ -204,6 +204,7 @@ udp_fifo = queue.Queue()
 multicast_group = "224.1.1.1"
 multicast_port = 2239
 interface_ip = "0.0.0.0"
+_udpwatch = None
 
 
 def relpath(filename):
@@ -769,7 +770,8 @@ def readpreferences():
     """
     Restore preferences if they exist, otherwise create some sane defaults.
     """
-    global preference, cat_control, look_up, cw
+    global preference, cat_control, look_up, cw, _udpwatch
+    global connect_to_server, server_udp, groupcall, multicast_group, multicast_port
     logging.debug("")
     try:
         if os.path.exists("./fd_preferences.json"):
@@ -823,6 +825,37 @@ def readpreferences():
                 daemon=True,
             )
             _thethread.start()
+        connect_to_server = preference.get("useserver")
+        multicast_group = preference.get("multicast_group")
+        multicast_port = preference.get("multicast_port")
+        interface_ip = preference.get("interface_ip")
+        if connect_to_server:
+            logging.info(
+                "Connecting: %s:%s %s",
+                multicast_group,
+                multicast_port,
+                interface_ip,
+            )
+            # chat_window.show()
+            server_udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            server_udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            server_udp.bind(("", int(multicast_port)))
+            mreq = socket.inet_aton(multicast_group) + socket.inet_aton(interface_ip)
+            server_udp.setsockopt(
+                socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, bytes(mreq)
+            )
+            server_udp.settimeout(0.01)
+
+            if _udpwatch is None:
+                _udpwatch = threading.Thread(
+                    target=watch_udp,
+                    daemon=True,
+                )
+                _udpwatch.start()
+        else:
+            groupcall = None
+            # mycallEntry.show()
+            # chat_window.hide()
         cloudlogauth()
     except KeyError as err:
         logging.warning("Corrupt preference, %s, loading clean version.", err)

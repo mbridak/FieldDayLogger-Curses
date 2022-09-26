@@ -22,6 +22,7 @@ Contact_______: michael.bridak@gmail.com
 # pylint: disable=global-statement
 
 from math import radians, sin, cos, atan2, sqrt, asin, pi
+from itertools import chain
 import curses
 import time
 import sys
@@ -35,8 +36,11 @@ from curses import wrapper
 from datetime import datetime, timedelta
 import threading
 import logging
-from json import loads, dumps
+import uuid
+import queue
+from json import loads, dumps, JSONDecodeError
 import requests
+
 from lib.cat_interface import CAT
 from lib.lookup import HamDBlookup, HamQTH, QRZlookup
 from lib.database import DataBase
@@ -86,6 +90,10 @@ preference = {
     "cwtype": 0,
     "CW_IP": "localhost",
     "CW_port": 6789,
+    "useserver": 1,
+    "multicast_group": "224.1.1.1",
+    "multicast_port": "2239",
+    "interface_ip": "0.0.0.0",
 }
 # incase preference becomes corrupt make a backup.
 reference_preference = preference.copy()
@@ -185,6 +193,18 @@ oldfreq = "0"
 oldmode = ""
 rigonline = None
 
+# New stuff for multiuser
+people = {}
+connect_to_server = False
+groupcall = None
+server_commands = []
+server_seen = None
+server_udp = None
+udp_fifo = queue.Queue()
+multicast_group = "224.1.1.1"
+multicast_port = 2239
+interface_ip = "0.0.0.0"
+
 
 def relpath(filename):
     """
@@ -205,6 +225,262 @@ def has_internet():
         return True
     except OSError:
         return False
+
+
+def show_people():
+    """Display operators"""
+    rev_dict = {}
+    for key, value in people.items():
+        rev_dict.setdefault(value, set()).add(key)
+    result = set(
+        chain.from_iterable(
+            values for key, values in rev_dict.items() if len(values) > 1
+        )
+    )
+    # users_list.clear()
+    # users_list.insertPlainText("    Operators\n")
+    for op_callsign in people:
+        if op_callsign in result:
+            pass
+            # self.users_list.setTextColor(QtGui.QColor(245, 121, 0))
+            # self.users_list.insertPlainText(
+            #     f"{op_callsign.rjust(6,' ')} {self.people.get(op_callsign).rjust(6, ' ')}\n"
+            # )
+            # self.users_list.setTextColor(QtGui.QColor(211, 215, 207))
+        else:
+            pass
+            # self.users_list.insertPlainText(
+            #     f"{op_callsign.rjust(6,' ')} {self.people.get(op_callsign).rjust(6, ' ')}\n"
+            # )
+
+
+def show_dirty_records():
+    """Checks for dirty records, Changes Generate Log button to give visual indication."""
+    if connect_to_server:
+        result = db.count_all_dirty_contacts()
+        all_dirty_count = result.get("alldirty")
+        if all_dirty_count:
+            pass
+            # self.genLogButton.setStyleSheet("background-color: red;")
+            # self.genLogButton.setText(f"UnVfyd: {all_dirty_count}")
+        else:
+            pass
+            # self.genLogButton.setStyleSheet("background-color: rgb(92, 53, 102);")
+            # self.genLogButton.setText("Generate Logs")
+
+
+def resolve_dirty_records():
+    """Go through dirty records and submit them to the server."""
+    if connect_to_server:
+        records = db.fetch_all_dirty_contacts()
+        # infobox.setTextColor(QtGui.QColor(211, 215, 207))
+        # infobox.insertPlainText(f"Resolving {len(records)} unsent contacts.\n")
+        # app.processEvents()
+        if records:
+            for count, dirty_contact in enumerate(records):
+                contact = {}
+                contact["cmd"] = "POST"
+                contact["station"] = preference.get("mycall")
+                stale = datetime.now() + timedelta(seconds=30)
+                contact["expire"] = stale.isoformat()
+                contact["unique_id"] = dirty_contact.get("unique_id")
+                contact["hiscall"] = dirty_contact.get("callsign")
+                contact["class"] = dirty_contact.get("class")
+                contact["section"] = dirty_contact.get("section")
+                contact["date_and_time"] = dirty_contact.get("date_time")
+                contact["frequency"] = dirty_contact.get("frequency")
+                contact["band"] = dirty_contact.get("band")
+                contact["mode"] = dirty_contact.get("mode")
+                contact["power"] = dirty_contact.get("power")
+                contact["grid"] = dirty_contact.get("grid")
+                contact["opname"] = dirty_contact.get("opname")
+                server_commands.append(contact)
+                bytesToSend = bytes(dumps(contact), encoding="ascii")
+                try:
+                    server_udp.sendto(
+                        bytesToSend,
+                        (multicast_group, int(multicast_port)),
+                    )
+                except OSError as err:
+                    logging.warning("%s", err)
+                time.sleep(0.1)  # Do I need this?
+                # infobox.insertPlainText(f"Sending {count}\n")
+                # app.processEvents()
+
+
+def clear_dirty_flag(unique_id):
+    """clear the dirty flag on record once response is returned from server."""
+    db.clear_dirty_flag(unique_id)
+    show_dirty_records()
+
+
+def remove_confirmed_commands(data):
+    """Removed confirmed commands from the sent commands list."""
+    for index, item in enumerate(server_commands):
+        if item.get("unique_id") == data.get("unique_id") and item.get(
+            "cmd"
+        ) == data.get("subject"):
+            server_commands.pop(index)
+            clear_dirty_flag(data.get("unique_id"))
+            # infoline.setText(f"Confirmed {data.get('subject')}")
+
+
+def check_for_stale_commands():
+    """
+    Check through server commands to see if there has not been a reply in 30 seconds.
+    Resubmits those that are stale.
+    """
+    if connect_to_server:
+        for index, item in enumerate(server_commands):
+            expired = datetime.strptime(item.get("expire"), "%Y-%m-%dT%H:%M:%S.%f")
+            if datetime.now() > expired:
+                newexpire = datetime.now() + timedelta(seconds=30)
+                server_commands[index]["expire"] = newexpire.isoformat()
+                bytesToSend = bytes(dumps(item), encoding="ascii")
+                try:
+                    server_udp.sendto(
+                        bytesToSend,
+                        (multicast_group, int(multicast_port)),
+                    )
+                except OSError as err:
+                    logging.warning("%s", err)
+
+
+def send_chat():
+    """Sends UDP chat packet with text entered in chat_entry field."""
+    message = "stub"  # chat_entry.text()
+    packet = {"cmd": "CHAT"}
+    packet["sender"] = preference.get("mycall")
+    packet["message"] = message
+    bytesToSend = bytes(dumps(packet), encoding="ascii")
+    try:
+        server_udp.sendto(bytesToSend, (multicast_group, int(multicast_port)))
+    except OSError as err:
+        logging.warning("%s", err)
+    # chat_entry.setText("")
+
+
+def display_chat(sender, body):
+    """Displays the chat history."""
+    if preference.get("mycall") in body.upper():
+        pass
+        # chatlog.setTextColor(QtGui.QColor(245, 121, 0))
+    # chatlog.insertPlainText(f"\n{sender}: {body}")
+    # chatlog.setTextColor(QtGui.QColor(211, 215, 207))
+    # chatlog.ensureCursorVisible()
+
+
+def watch_udp():
+    """Puts UDP datagrams in a FIFO queue"""
+    while True:
+        if connect_to_server:
+            try:
+                datagram = server_udp.recv(1500)
+            except socket.timeout:
+                time.sleep(1)
+                continue
+            if datagram:
+                udp_fifo.put(datagram)
+        else:
+            time.sleep(1)
+
+
+def check_udp_queue():
+    """checks the UDP datagram queue."""
+    global server_seen
+    global groupcall
+    if server_seen:
+        if datetime.now() > server_seen:
+            pass
+            # group_call_indicator.setStyleSheet(
+            #     "border: 1px solid green;\nbackground-color: red;\ncolor: yellow;"
+            # )
+    while not udp_fifo.empty():
+        datagram = udp_fifo.get()
+        try:
+            json_data = loads(datagram.decode())
+        except UnicodeDecodeError as err:
+            the_error = f"Not Unicode: {err}\n{datagram}"
+            logging.info(the_error)
+            continue
+        except JSONDecodeError as err:
+            the_error = f"Not JSON: {err}\n{datagram}"
+            logging.info(the_error)
+            continue
+        logging.info("%s", json_data)
+
+        if json_data.get("cmd") == "PING":
+            if json_data.get("station"):
+                band_mode = f"{json_data.get('band')} {json_data.get('mode')}"
+                if people.get(json_data.get("station")) != band_mode:
+                    people[json_data.get("station")] = band_mode
+                show_people()
+            if json_data.get("host"):
+                server_seen = datetime.now() + timedelta(seconds=30)
+                # group_call_indicator.setStyleSheet("border: 1px solid green;")
+            continue
+
+        if json_data.get("cmd") == "RESPONSE":
+            if json_data.get("recipient") == preference.get("mycall"):
+                if json_data.get("subject") == "HOSTINFO":
+                    groupcall = str(json_data.get("groupcall"))
+                    # myclassEntry.setText(str(json_data.get("groupclass")))
+                    # mysectionEntry.setText(str(json_data.get("groupsection")))
+                    # group_call_indicator.setText(groupcall)
+                    # changemyclass()
+                    # changemysection()
+                    # mycallEntry.hide()
+                    server_seen = datetime.now() + timedelta(seconds=30)
+                    # group_call_indicator.setStyleSheet("border: 1px solid green;")
+                    return
+                if json_data.get("subject") == "LOG":
+                    pass
+                    # infoline.setText("Server Generated Log.")
+                remove_confirmed_commands(json_data)
+                continue
+
+        if json_data.get("cmd") == "CHAT":
+            display_chat(json_data.get("sender"), json_data.get("message"))
+            continue
+
+        if json_data.get("cmd") == "GROUPQUERY":
+            if groupcall:
+                send_status_udp()
+
+
+def query_group():
+    """Sends request to server asking for group call/class/section."""
+    update = {
+        "cmd": "GROUPQUERY",
+        "station": preference["mycall"],
+    }
+    bytesToSend = bytes(dumps(update), encoding="ascii")
+    try:
+        server_udp.sendto(bytesToSend, (multicast_group, int(multicast_port)))
+    except OSError as err:
+        logging.warning("%s", err)
+
+
+def send_status_udp():
+    """Send status update to server informing of our band and mode"""
+    if connect_to_server:
+        if groupcall is None and preference["mycall"] != "":
+            query_group()
+            return
+
+        update = {
+            "cmd": "PING",
+            "mode": mode,
+            "band": band,
+            "station": preference["mycall"],
+        }
+        bytesToSend = bytes(dumps(update), encoding="ascii")
+        try:
+            server_udp.sendto(bytesToSend, (multicast_group, int(multicast_port)))
+        except OSError as err:
+            logging.warning("%s", err)
+
+        check_for_stale_commands()
 
 
 def clearcontactlookup():
@@ -579,6 +855,69 @@ def log_contact(logme):
     postcloudlog()
 
 
+# FIXME import from fdlogger gui
+# def log_contact(self):
+#     """Log the current contact"""
+#     self.show_dirty_records()
+#     if (
+#         len(self.callsign_entry.text()) == 0
+#         or len(self.class_entry.text()) == 0
+#         or len(self.section_entry.text()) == 0
+#     ):
+#         return
+#     if not self.cat_control:
+#         self.oldfreq = int(float(self.fakefreq(self.band, self.mode)) * 1000)
+#     unique_id = uuid.uuid4().hex
+#     contact = (
+#         self.callsign_entry.text(),
+#         self.class_entry.text(),
+#         self.section_entry.text(),
+#         self.oldfreq,
+#         self.band,
+#         self.mode,
+#         int(self.power_selector.value()),
+#         self.contactlookup["grid"],
+#         self.contactlookup["name"],
+#         unique_id,
+#     )
+#     self.db.log_contact(contact)
+
+#     stale = datetime.now() + timedelta(seconds=30)
+#     if self.connect_to_server:
+#         contact = {
+#             "cmd": "POST",
+#             "hiscall": self.callsign_entry.text(),
+#             "class": self.class_entry.text(),
+#             "section": self.section_entry.text(),
+#             "mode": self.mode,
+#             "band": self.band,
+#             "frequency": self.oldfreq,
+#             "date_and_time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
+#             "power": int(self.power_selector.value()),
+#             "grid": self.contactlookup["grid"],
+#             "opname": self.contactlookup["name"],
+#             "station": self.preference["mycall"],
+#             "unique_id": unique_id,
+#             "expire": stale.isoformat(),
+#         }
+#         self.server_commands.append(contact)
+#         bytesToSend = bytes(dumps(contact), encoding="ascii")
+#         try:
+#             self.server_udp.sendto(
+#                 bytesToSend, (self.multicast_group, int(self.multicast_port))
+#             )
+#         except OSError as err:
+#             logging.warning("%s", err)
+
+#     self.sections()
+#     self.stats()
+#     self.updatemarker()
+#     self.logwindow()
+#     self.clearinputs()
+#     self.postcloudlog()
+#     self.clearcontactlookup()
+
+
 def delete_contact(contact):
     """delete contact from db"""
     db.delete_contact(contact)
@@ -915,7 +1254,7 @@ def postcloudlog():
 def cabrillo():
     """generates a cabrillo file"""
     logname = "FieldDay.log"
-    log = db.fetch_all_contacts_under101_asc()
+    log = db.fetch_all_contacts_asc()
     catpower = ""
     if qrp:
         catpower = "QRP"

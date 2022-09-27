@@ -969,25 +969,20 @@ def read_sections():
     """
     Reads in the ARRL sections into some internal dictionaries.
     """
+    global secName, secState, secPartial
     try:
         with open(
-            relpath("./data/arrl_sect.dat"), "r", encoding="utf-8"
+            relpath("./data/secname.json"), "rt", encoding="utf-8"
         ) as file_descriptor:
-            while 1:
-                line = file_descriptor.readline().strip()  # read a line and put in db
-                if not line:
-                    break
-                if line[0] == "#":
-                    continue
-                try:
-                    _, state, canum, abbrev, name = str.split(line, None, 4)
-                    secName[abbrev] = abbrev + " " + name + " " + canum
-                    secState[abbrev] = state
-                    for i in range(len(abbrev) - 1):
-                        partial = abbrev[: -i - 1]
-                        secPartial[partial] = 1
-                except ValueError as exception:
-                    logging.warning("%s", exception)
+            secName = loads(file_descriptor.read())
+        with open(
+            relpath("./data/secstate.json"), "rt", encoding="utf-8"
+        ) as file_descriptor:
+            secState = loads(file_descriptor.read())
+        with open(
+            relpath("./data/secpartial.json"), "rt", encoding="utf-8"
+        ) as file_descriptor:
+            secPartial = loads(file_descriptor.read())
     except IOError as exception:
         logging.critical("read error: %s", exception)
 
@@ -1011,7 +1006,7 @@ def section_check(sec):
 
 
 def readSCP():
-    """read section check partial file"""
+    """read super check partial file"""
     global scp
     f = open(relpath("./data/MASTER.SCP"), "r", encoding="utf-8")
     scp = f.readlines()

@@ -1111,7 +1111,10 @@ def generateBandModeTally():
                 dit = getBandModeTally(b, "DI")
                 pht = getBandModeTally(b, "PH")
                 print(
-                    f"Band:\t{b}\t{cwt[0]}\t{cwt[1]}\t{dit[0]}\t{dit[1]}\t{pht[0]}\t{pht[1]}",
+                    f"Band:\t{b}\t"
+                    f"{cwt.get('tally')}\t{cwt.get('mpow')}\t"
+                    f"{dit.get('tally')}\t{dit.get('mpow')}\t"
+                    f"{pht.get('tally')}\t{pht.get('mpow')}",
                     end="\r\n",
                     file=file_descriptor,
                 )
@@ -1231,18 +1234,16 @@ def postcloudlog():
     """posts a contacts to cloudlog."""
     if not preference["cloudlogapi"] or not cloudlogauthenticated:
         return
-    (
-        _,
-        opcall,
-        opclass,
-        opsection,
-        the_datetime,
-        the_band,
-        the_mode,
-        _,
-        grid,
-        name,
-    ) = db.fetch_last_contact()
+    result = db.fetch_last_contact()
+    opcall = result.get("callsign")
+    opclass = result.get("class")
+    opsection = result.get("section")
+    the_datetime = result.get("date_time")
+    the_band = result.get("band")
+    the_mode = result.get("mode")
+    grid = result.get("grid")
+    name = result.get("opname")
+
     if the_mode == "CW":
         rst = "599"
     else:
@@ -1315,19 +1316,16 @@ def cabrillo():
         print("ADDRESS-COUNTRY: ", end="\r\n", file=file_descriptor)
         print("EMAIL: ", end="\r\n", file=file_descriptor)
         print("CREATED-BY: K6GTE Field Day Logger", end="\r\n", file=file_descriptor)
-        for contact in log:
-            (
-                _,
-                opcall,
-                opclass,
-                opsection,
-                the_datetime,
-                the_band,
-                the_mode,
-                _,
-                _,
-                _,
-            ) = contact
+        for result in log:
+            opcall = result.get("callsign")
+            opclass = result.get("class")
+            opsection = result.get("section")
+            the_datetime = result.get("date_time")
+            the_band = result.get("band")
+            the_mode = result.get("mode")
+            # grid = result.get('grid')
+            # name = result.get('opname')
+
             if the_mode == "DI":
                 the_mode = "DG"
             loggeddate = the_datetime[:10]
@@ -1376,19 +1374,18 @@ def logwindow():
     zerofiller = "000"
     contacts = curses.newpad(1000, 80)
     log = db.fetch_all_contacts_desc()
-    for logNumber, x in enumerate(log):
-        (
-            logid,
-            opcall,
-            opclass,
-            opsection,
-            the_datetime,
-            the_band,
-            the_mode,
-            the_power,
-            _,
-            _,
-        ) = x
+    for logNumber, result in enumerate(log):
+        logid = result.get("id")
+        opcall = result.get("callsign")
+        opclass = result.get("class")
+        opsection = result.get("section")
+        the_datetime = result.get("date_time")
+        the_band = result.get("band")
+        the_mode = result.get("mode")
+        the_power = result.get("power")
+        # grid = result.get('grid')
+        # name = result.get('opname')
+
         logid = zerofiller[: -len(str(logid))] + str(logid)
         opcall = opcall + callfiller[: -len(opcall)]
         opclass = opclass + classfiller[: -len(opclass)]
@@ -1448,7 +1445,11 @@ def dupCheck(acall):
     log = db.dup_check(acall)
     for counter, contact in enumerate(log):
         decorate = ""
-        hiscallsign, hisclass, hissection, hisband, hismode = contact
+        hiscallsign = contact.get("callsign")
+        hisclass = contact.get("class")
+        hissection = contact.get("section")
+        hisband = contact.get("band")
+        hismode = contact.get("mode")
         if hissection_field.text() == "":
             hissection_field.set_text(hissection)
             hissection_field.get_focus()
@@ -1944,16 +1945,19 @@ def proc_key(key):
         isCall = re.compile(
             "^(([0-9])?[A-z]{1,2}[0-9]/)?[A-Za-z]{1,2}[0-9]{1,3}[A-Za-z]{1,4}(/[A-Za-z0-9]{1,3})?$"
         )
-        if re.match(isCall, hiscall):
+        unique_id = uuid.uuid4().hex
+        if re.match(isCall, hiscall):  # FIXME
             contact = (
                 hiscall,
                 hisclass,
                 hissection,
+                oldfreq,
                 band,
                 mode,
                 int(preference["power"]),
                 contactlookup["grid"],
                 contactlookup["name"],
+                unique_id,
             )
             clearDisplayInfo()
             log_contact(contact)
@@ -2140,7 +2144,7 @@ def EditClickedQSO(line):
             break
 
 
-def editQSO(q):
+def editQSO(q):  # FIXME
     """Edit contact"""
     if q is False or q == "":
         setStatusMsg("Must specify a contact number")
@@ -2151,7 +2155,16 @@ def editQSO(q):
     if not log:
         return
     qso = ["", "", "", "", "", "", "", "", "", ""]
-    qso[0], qso[1], qso[2], qso[3], qso[4], qso[5], qso[6], qso[7], qso[8], qso[9] = log
+    qso[0] = log.get("id")
+    qso[1] = log.get("callsign")
+    qso[2] = log.get("class")
+    qso[3] = log.get("section")
+    qso[4] = log.get("date_time")
+    qso[5] = log.get("band")
+    qso[6] = log.get("mode")
+    qso[7] = log.get("power")
+    qso[8] = log.get("grid")
+    qso[9] = log.get("opname")
     qsoew = curses.newwin(10, 40, 6, 10)
     qsoew.keypad(True)
     qsoew.nodelay(True)
@@ -2166,15 +2179,15 @@ def editQSO(q):
     qso_edit_field_7 = EditTextField(qsoew, 6, 10, 2)
     qso_edit_field_8 = EditTextField(qsoew, 7, 10, 3)
 
-    qso_edit_field_1.set_text(log[1])
-    qso_edit_field_2.set_text(log[2])
-    qso_edit_field_3.set_text(log[3])
-    dt = log[4].split()
+    qso_edit_field_1.set_text(log.get("callsign"))
+    qso_edit_field_2.set_text(log.get("class"))
+    qso_edit_field_3.set_text(log.get("section"))
+    dt = log.get("date_time").split()
     qso_edit_field_4.set_text(dt[0])
     qso_edit_field_5.set_text(dt[1])
-    qso_edit_field_6.set_text(log[5])
-    qso_edit_field_7.set_text(log[6])
-    qso_edit_field_8.set_text(str(log[7]))
+    qso_edit_field_6.set_text(log.get("band"))
+    qso_edit_field_7.set_text(log.get("mode"))
+    qso_edit_field_8.set_text(str(log.get("power")))
 
     qso_edit_fields = [
         qso_edit_field_1,
@@ -2296,6 +2309,7 @@ def main(s):  # pylint: disable=unused-argument
             break
         if datetime.now() > poll_time:
             statusline()
+            check_udp_queue()
             poll_radio()
             poll_time = datetime.now() + timedelta(seconds=1)
 

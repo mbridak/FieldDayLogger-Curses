@@ -228,6 +228,36 @@ def has_internet():
         return False
 
 
+def fakefreq(band, mode):
+    """
+    If unable to obtain a frequency from the rig,
+    This will return a sane value for a frequency mainly for the cabrillo and adif log.
+    Takes a band and mode as input and returns freq in khz.
+    """
+    logging.info("fakefreq: band:%s mode:%s", band, mode)
+    modes = {"CW": 0, "DI": 1, "PH": 2, "FT8": 1, "SSB": 2}
+    fakefreqs = {
+        "160": ["1830", "1805", "1840"],
+        "80": ["3530", "3559", "3970"],
+        "60": ["5332", "5373", "5405"],
+        "40": ["7030", "7040", "7250"],
+        "30": ["10130", "10130", "0000"],
+        "20": ["14030", "14070", "14250"],
+        "17": ["18080", "18100", "18150"],
+        "15": ["21065", "21070", "21200"],
+        "12": ["24911", "24920", "24970"],
+        "10": ["28065", "28070", "28400"],
+        "6": ["50.030", "50300", "50125"],
+        "2": ["144030", "144144", "144250"],
+        "222": ["222100", "222070", "222100"],
+        "432": ["432070", "432200", "432100"],
+        "SAT": ["144144", "144144", "144144"],
+    }
+    freqtoreturn = fakefreqs[band][modes[mode]]
+    logging.info("fakefreq: returning:%s", freqtoreturn)
+    return freqtoreturn
+
+
 def show_people():
     """Display operators"""
     rev_dict = {}
@@ -425,12 +455,8 @@ def check_udp_queue():
             if json_data.get("recipient") == preference.get("mycall"):
                 if json_data.get("subject") == "HOSTINFO":
                     groupcall = str(json_data.get("groupcall"))
-                    # myclassEntry.setText(str(json_data.get("groupclass")))
-                    # mysectionEntry.setText(str(json_data.get("groupsection")))
-                    # group_call_indicator.setText(groupcall)
-                    # changemyclass()
-                    # changemysection()
-                    # mycallEntry.hide()
+                    preference["myclass"] = str(json_data.get("groupclass"))
+                    preference["mysection"] = str(json_data.get("groupsection"))
                     server_seen = datetime.now() + timedelta(seconds=30)
                     # group_call_indicator.setStyleSheet("border: 1px solid green;")
                     return
@@ -522,12 +548,12 @@ def lazy_lookup(acall: str):
         if contactlookup["grid"] and mygrid:
             contactlookup["distance"] = distance(mygrid, contactlookup["grid"])
             contactlookup["bearing"] = bearing(mygrid, contactlookup["grid"])
-            # displayinfo(f"{contactlookup['name'][:33]}", line=1)
-            # displayinfo(
-            #     f"{contactlookup['grid']} "
-            #     f"{round(contactlookup['distance'])}km "
-            #     f"{round(contactlookup['bearing'])}deg"
-            # )
+            displayinfo(f"{contactlookup['name'][:33]}", line=1)
+            displayinfo(
+                f"{contactlookup['grid']} "
+                f"{round(contactlookup['distance'])}km "
+                f"{round(contactlookup['bearing'])}deg"
+            )
         logging.info("%s", contactlookup)
 
 
@@ -693,6 +719,7 @@ def poll_radio():
             setmode(str(getmode(newmode)))
     else:
         rigonline = None
+        oldfreq = fakefreq(band, mode)
 
 
 def read_cw_macros():
@@ -771,7 +798,7 @@ def readpreferences():
     Restore preferences if they exist, otherwise create some sane defaults.
     """
     global preference, cat_control, look_up, cw, _udpwatch
-    global connect_to_server, server_udp, groupcall, multicast_group, multicast_port
+    global connect_to_server, server_udp, groupcall, multicast_group, multicast_port, interface_ip
     logging.debug("")
     try:
         if os.path.exists("./fd_preferences.json"):
@@ -1092,7 +1119,7 @@ def getbands():
     x = db.get_bands()
     if x:
         for count in x:
-            bandlist.append(count[0])
+            bandlist.append(count.get("band"))
         return bandlist
     return []
 
@@ -1139,19 +1166,16 @@ def adif():
     with open(logname, "w", encoding="UTF-8") as file_descriptor:
         print("<ADIF_VER:5>2.2.0", end="\r\n", file=file_descriptor)
         print("<EOH>", end="\r\n", file=file_descriptor)
-        for contact in log:
-            (
-                _,
-                opcall,
-                opclass,
-                opsection,
-                the_datetime,
-                the_band,
-                the_mode,
-                _,
-                grid,
-                name,
-            ) = contact
+        for result in log:
+            opcall = result.get("callsign")
+            opclass = result.get("class")
+            opsection = result.get("section")
+            the_datetime = result.get("date_time")
+            the_band = result.get("band")
+            the_mode = result.get("mode")
+            grid = result.get("grid")
+            name = result.get("opname")
+
             if the_mode == "DI":
                 the_mode = "FT8"
             if the_mode == "PH":
@@ -1703,10 +1727,14 @@ def statusline():
     else:
         stdscr.addstr(23, 20, f"  {mode}  ", curses.A_REVERSE)
     stdscr.addstr(23, 27, "                            ")
+    if groupcall and connect_to_server:
+        showcall = groupcall
+    else:
+        showcall = preference.get("mycall")
     stdscr.addstr(
         23,
         27,
-        f" {preference['mycall']}|"
+        f" {showcall}|"
         f"{preference['myclass']}|"
         f"{preference['mysection']}|"
         f"{preference['power']}w ",
@@ -1941,7 +1969,7 @@ def proc_key(key):
             "^(([0-9])?[A-z]{1,2}[0-9]/)?[A-Za-z]{1,2}[0-9]{1,3}[A-Za-z]{1,4}(/[A-Za-z0-9]{1,3})?$"
         )
         unique_id = uuid.uuid4().hex
-        if re.match(isCall, hiscall):  # FIXME
+        if re.match(isCall, hiscall):
             contact = (
                 hiscall,
                 hisclass,
@@ -2139,7 +2167,7 @@ def EditClickedQSO(line):
             break
 
 
-def editQSO(q):  # FIXME
+def editQSO(q):
     """Edit contact"""
     if q is False or q == "":
         setStatusMsg("Must specify a contact number")
@@ -2281,6 +2309,7 @@ def main(s):  # pylint: disable=unused-argument
     )
     _ft8thread.start()
     poll_time = datetime.now()
+    send_status = datetime.now()
     while 1:
         stdscr.refresh()
         ch = stdscr.getch()
@@ -2307,6 +2336,9 @@ def main(s):  # pylint: disable=unused-argument
             check_udp_queue()
             poll_radio()
             poll_time = datetime.now() + timedelta(seconds=1)
+        if datetime.now() > send_status:
+            send_status_udp()
+            send_status = datetime.now() + timedelta(seconds=15)
 
 
 wrapper(main)

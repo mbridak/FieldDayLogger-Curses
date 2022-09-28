@@ -92,6 +92,7 @@ class DataBase:
             try:
                 with sqlite3.connect(self.database) as conn:
                     sql = f"select unique_id from contacts where id={int(contact)}"
+                    conn.row_factory = self.row_factory
                     cursor = conn.cursor()
                     cursor.execute(sql)
                     unique_id = str(cursor.fetchone()[0])
@@ -113,15 +114,13 @@ class DataBase:
 
     def change_contact(self, qso):
         """Update an existing contact."""
-        print(qso)
         try:
             with sqlite3.connect(self.database) as conn:
                 sql = (
-                    f"update contacts set callsign = '{qso[0]}', class = '{qso[1]}', "
-                    f"section = '{qso[2]}', date_time = '{qso[3]}', band = '{qso[4]}', "
-                    f"mode = '{qso[5]}', power = '{qso[6]}'  where id='{qso[7]}'"
+                    f"update contacts set callsign = '{qso[1]}', class = '{qso[2]}', "
+                    f"section = '{qso[3]}', date_time = '{qso[4]}', band = '{qso[5]}', "
+                    f"mode = '{qso[6]}', power = '{qso[7]}'  where id='{qso[0]}'"
                 )
-                print(sql)
                 cur = conn.cursor()
                 cur.execute(sql)
                 conn.commit()
@@ -245,6 +244,7 @@ class DataBase:
         for a given band using a particular mode.
         """
         with sqlite3.connect(self.database) as conn:
+            conn.row_factory = self.row_factory
             cursor = conn.cursor()
             cursor.execute(
                 "select count(*) as tally, MAX(power) as mpow from contacts "
@@ -255,6 +255,7 @@ class DataBase:
     def get_bands(self) -> tuple:
         """returns a list of bands"""
         with sqlite3.connect(self.database) as conn:
+            conn.row_factory = self.row_factory
             cursor = conn.cursor()
             cursor.execute("select DISTINCT band from contacts")
             return cursor.fetchall()
@@ -262,6 +263,7 @@ class DataBase:
     def fetch_all_contacts_asc(self) -> tuple:
         """returns a tuple of all contacts in the database."""
         with sqlite3.connect(self.database) as conn:
+            conn.row_factory = self.row_factory
             cursor = conn.cursor()
             cursor.execute("select * from contacts order by date_time ASC")
             return cursor.fetchall()
@@ -269,6 +271,7 @@ class DataBase:
     def fetch_all_contacts_desc(self) -> tuple:
         """returns a tuple of all contacts in the database."""
         with sqlite3.connect(self.database) as conn:
+            conn.row_factory = self.row_factory
             cursor = conn.cursor()
             cursor.execute("select * from contacts order by date_time desc")
             return cursor.fetchall()
@@ -304,6 +307,7 @@ class DataBase:
     def fetch_last_contact(self) -> tuple:
         """returns a tuple of all contacts in the database."""
         with sqlite3.connect(self.database) as conn:
+            conn.row_factory = self.row_factory
             cursor = conn.cursor()
             cursor.execute("select * from contacts order by id desc")
             return cursor.fetchone()
@@ -311,6 +315,7 @@ class DataBase:
     def dup_check(self, acall: str) -> tuple:
         """returns a list of possible dups"""
         with sqlite3.connect(self.database) as conn:
+            conn.row_factory = self.row_factory
             cursor = conn.cursor()
             cursor.execute(
                 "select callsign, class, section, band, mode "
@@ -321,6 +326,7 @@ class DataBase:
     def sections(self) -> tuple:
         """returns a list of sections worked."""
         with sqlite3.connect(self.database) as conn:
+            conn.row_factory = self.row_factory
             cursor = conn.cursor()
             cursor.execute("select distinct section from contacts")
             return cursor.fetchall()
@@ -328,13 +334,19 @@ class DataBase:
     def contact_by_id(self, record) -> tuple:
         """returns a contact matching an id"""
         with sqlite3.connect(self.database) as conn:
+            conn.row_factory = self.row_factory
             cursor = conn.cursor()
             cursor.execute("select * from contacts where id=" + record)
-            return cursor.fetchall()
+            return cursor.fetchone()
 
     def get_grids(self) -> tuple:
         """returns a tuple of unique grids in the log."""
         with sqlite3.connect(self.database) as conn:
+            conn.row_factory = self.row_factory
             cursor = conn.cursor()
             cursor.execute("select DISTINCT grid from contacts")
             return cursor.fetchall()
+
+
+if __name__ == "__main__":
+    print("Nope not a program")

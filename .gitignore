@@ -14,3 +14,4 @@ debug
 debug.log
 build/*
 server_database.db
+server_debug.log

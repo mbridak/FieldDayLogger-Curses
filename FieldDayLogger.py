@@ -779,7 +779,6 @@ def readpreferences():
                 "./fd_preferences.json", "rt", encoding="utf-8"
             ) as file_descriptor:
                 preference = loads(file_descriptor.read())
-                logging.info("%s", preference)
                 preference["mycall"] = preference["mycall"].upper()
                 preference["myclass"] = preference["myclass"].upper()
                 preference["mysection"] = preference["mysection"].upper()
@@ -1486,15 +1485,11 @@ def displaySCP(matches):
 def workedSections():
     """finds all sections worked"""
     global wrkdsections
-    all_rows = db.sections()
-    wrkdsections = str(all_rows)
-    wrkdsections = (
-        wrkdsections.replace("('", "")
-        .replace("',), ", ",")
-        .replace("',)]", "")
-        .replace("[", "")
-        .split(",")
-    )
+    result = db.sections()
+    wrkdsections = []
+    logging.debug("%s", result)
+    for section in result:
+        wrkdsections.append(section.get("section"))
 
 
 def workedSection(section):

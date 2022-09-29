@@ -40,6 +40,7 @@ import uuid
 import queue
 from json import loads, dumps, JSONDecodeError
 import requests
+import textwrap
 
 from lib.cat_interface import CAT
 from lib.lookup import HamDBlookup, HamQTH, QRZlookup
@@ -49,6 +50,31 @@ from lib.edittextfield import EditTextField
 from lib.wsjtx_listener import WsjtxListener
 from lib.settings import SettingsScreen
 from lib.version import __version__
+
+
+class Chatlog:
+    """holds recent chat"""
+
+    def __init__(self):
+        self.items = []
+
+    def add_item(self, item):
+        """adds an item to the log and trims the log"""
+        lines = item.split("\n")
+        for line in lines:
+            if len(line) > 42:
+                chunks = textwrap.wrap(line, 42)
+                for chunk in chunks:
+                    self.items.append(chunk)
+            else:
+                self.items.append(line)
+        if len(self.items) > 12:
+            self.items = self.items[len(self.items) - 12 :]
+
+    def get_log(self):
+        """returns a list of log items"""
+        return self.items
+
 
 if Path("./debug").exists():
     logging.basicConfig(
@@ -114,6 +140,7 @@ stdscr = curses.initscr()
 contacts = curses.newpad(1000, 80)
 seccheckwindow = curses.newpad(20, 33)
 infowindow = curses.newpad(10, 33)
+chatwindow = curses.newwin(12, 43, 9, 36)
 height, width = stdscr.getmaxyx()
 hiscall_field = EditTextField(stdscr, y=9, x=1, length=14)
 hisclass_field = EditTextField(stdscr, y=9, x=20, length=4)
@@ -207,6 +234,7 @@ multicast_group = "224.1.1.1"
 multicast_port = 2239
 interface_ip = "0.0.0.0"
 _udpwatch = None
+chat = Chatlog()
 
 
 def relpath(filename):
@@ -395,12 +423,22 @@ def send_chat():
 
 def display_chat(sender, body):
     """Displays the chat history."""
-    if preference.get("mycall") in body.upper():
-        pass
-        # chatlog.setTextColor(QtGui.QColor(245, 121, 0))
-    # chatlog.insertPlainText(f"\n{sender}: {body}")
-    # chatlog.setTextColor(QtGui.QColor(211, 215, 207))
-    # chatlog.ensureCursorVisible()
+    y, x = stdscr.getyx()
+    rectangle(stdscr, 8, 35, 21, 79)
+    stdscr.refresh()
+    chat.add_item(f"{sender}: {body}")
+    try:
+        chatwindow.clear()
+        for display_line, display_item in enumerate(chat.get_log()):
+            if preference.get("mycall") in display_item:
+                decorate = curses.color_pair(1)
+            else:
+                decorate = curses.A_NORMAL
+            chatwindow.addstr(display_line, 0, display_item, decorate)
+        chatwindow.refresh()
+    except curses.error as err:
+        logging.debug("%s", err)
+    stdscr.move(y, x)
 
 
 def watch_udp():
@@ -1593,12 +1631,16 @@ def sectionsCol5():
 
 def sections():
     """Check sections worked and display them"""
-    workedSections()
-    sectionsCol1()
-    sectionsCol2()
-    sectionsCol3()
-    sectionsCol4()
-    sectionsCol5()
+    # chatwindow = curses.newwin(12, 43, 9, 36)
+    if connect_to_server:
+        rectangle(stdscr, 8, 35, 21, 78)
+    else:
+        workedSections()
+        sectionsCol1()
+        sectionsCol2()
+        sectionsCol3()
+        sectionsCol4()
+        sectionsCol5()
     stdscr.refresh()
 
 

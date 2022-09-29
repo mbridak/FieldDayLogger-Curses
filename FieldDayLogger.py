@@ -306,11 +306,11 @@ def resolve_dirty_records():
     """Go through dirty records and submit them to the server."""
     if connect_to_server:
         records = db.fetch_all_dirty_contacts()
-        # infobox.setTextColor(QtGui.QColor(211, 215, 207))
-        # infobox.insertPlainText(f"Resolving {len(records)} unsent contacts.\n")
-        # app.processEvents()
+        infowindow.clear()
+        infowindow.addstr(f"Resolving {len(records)} unsent contacts.\n")
         if records:
-            for count, dirty_contact in enumerate(records):
+            infowindow.addstr("sending")
+            for dirty_contact in records:
                 contact = {}
                 contact["cmd"] = "POST"
                 contact["station"] = preference.get("mycall")
@@ -337,8 +337,8 @@ def resolve_dirty_records():
                 except OSError as err:
                     logging.warning("%s", err)
                 time.sleep(0.1)  # Do I need this?
-                # infobox.insertPlainText(f"Sending {count}\n") fixme
-                # app.processEvents()
+                infowindow.addstr(".")
+                infowindow.refresh(0, 0, 12, 1, 20, 33)
 
 
 def clear_dirty_flag(unique_id):
@@ -1208,10 +1208,6 @@ def adif():
             print("<COMMENT:14>ARRL-FIELD-DAY", end="\r\n", file=file_descriptor)
             print("<EOR>", end="\r\n", file=file_descriptor)
             print("", end="\r\n", file=file_descriptor)
-    yy, xx = stdscr.getyx()
-    stdscr.move(15, 1)
-    stdscr.addstr("Done.                     ")
-    stdscr.move(yy, xx)
     stdscr.refresh()
 
 
@@ -1336,9 +1332,10 @@ def cabrillo():
     oy, ox = stdscr.getyx()
     infowindow.clear()
     rectangle(stdscr, 11, 0, 21, 34)
-    infowindow.addstr(0, 0, f"Log written to: {logname}")
-    infowindow.addstr(1, 0, "Stats written to: Statistics.txt")
-    infowindow.addstr(2, 0, "Writing ADIF to: FieldDay.adi")
+    resolve_dirty_records()
+    infowindow.addstr(f"\nLog written to: {logname}\n")
+    infowindow.addstr("Stats written to: Statistics.txt\n")
+    infowindow.addstr("Writing ADIF to: FieldDay.adi\n")
     stdscr.refresh()
     infowindow.refresh(0, 0, 12, 1, 20, 33)
     stdscr.move(oy, ox)

@@ -792,11 +792,7 @@ def main(_):
                     )
 
                     score = (((QRP * 3) * BATTERYPOWER) + 2) * points
-                    message += (
-                        f"\nScore {score}\n"
-                        f"Last Hour {lasthour}\n"
-                        f"Last 15 {last15}"
-                    )
+                    message += f"Score {score}\nLast Hour {lasthour}\nLast 15 {last15}"
                     packet = {"cmd": "CHAT"}
                     packet["sender"] = "Server"
                     packet["message"] = message

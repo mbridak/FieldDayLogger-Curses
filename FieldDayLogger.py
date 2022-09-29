@@ -909,74 +909,36 @@ def writepreferences():
 def log_contact(logme):
     """Log a contact to the db"""
     db.log_contact(logme)
+    if connect_to_server:
+        stale = datetime.now() + timedelta(seconds=30)
+        contact = {
+            "cmd": "POST",
+            "hiscall": logme[0],
+            "class": logme[1],
+            "section": logme[2],
+            "mode": logme[5],
+            "band": logme[4],
+            "frequency": logme[3],
+            "date_and_time": logme[4],
+            "power": logme[6],
+            "grid": logme[7],
+            "opname": logme[8],
+            "station": preference.get("mycall"),
+            "unique_id": logme[9],
+            "expire": stale.isoformat(),
+        }
+        server_commands.append(contact)
+        bytesToSend = bytes(dumps(contact), encoding="ascii")
+        try:
+            server_udp.sendto(bytesToSend, (multicast_group, int(multicast_port)))
+        except OSError as err:
+            logging.warning("%s", err)
     workedSections()
     sections()
     stats()
     logwindow()
     postcloudlog()
-
-
-# FIXME import from fdlogger gui
-# def log_contact(self):
-#     """Log the current contact"""
-#     self.show_dirty_records()
-#     if (
-#         len(self.callsign_entry.text()) == 0
-#         or len(self.class_entry.text()) == 0
-#         or len(self.section_entry.text()) == 0
-#     ):
-#         return
-#     if not self.cat_control:
-#         self.oldfreq = int(float(self.fakefreq(self.band, self.mode)) * 1000)
-#     unique_id = uuid.uuid4().hex
-#     contact = (
-#         self.callsign_entry.text(),
-#         self.class_entry.text(),
-#         self.section_entry.text(),
-#         self.oldfreq,
-#         self.band,
-#         self.mode,
-#         int(self.power_selector.value()),
-#         self.contactlookup["grid"],
-#         self.contactlookup["name"],
-#         unique_id,
-#     )
-#     self.db.log_contact(contact)
-
-#     stale = datetime.now() + timedelta(seconds=30)
-#     if self.connect_to_server:
-#         contact = {
-#             "cmd": "POST",
-#             "hiscall": self.callsign_entry.text(),
-#             "class": self.class_entry.text(),
-#             "section": self.section_entry.text(),
-#             "mode": self.mode,
-#             "band": self.band,
-#             "frequency": self.oldfreq,
-#             "date_and_time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
-#             "power": int(self.power_selector.value()),
-#             "grid": self.contactlookup["grid"],
-#             "opname": self.contactlookup["name"],
-#             "station": self.preference["mycall"],
-#             "unique_id": unique_id,
-#             "expire": stale.isoformat(),
-#         }
-#         self.server_commands.append(contact)
-#         bytesToSend = bytes(dumps(contact), encoding="ascii")
-#         try:
-#             self.server_udp.sendto(
-#                 bytesToSend, (self.multicast_group, int(self.multicast_port))
-#             )
-#         except OSError as err:
-#             logging.warning("%s", err)
-
-#     self.sections()
-#     self.stats()
-#     self.updatemarker()
-#     self.logwindow()
-#     self.clearinputs()
-#     self.postcloudlog()
-#     self.clearcontactlookup()
+    clearcontactlookup()
 
 
 def delete_contact(contact):
@@ -1305,7 +1267,6 @@ def postcloudlog():
 
 def cabrillo():
     """generates a cabrillo file"""
-    global infowindow
     logname = "FieldDay.log"
     log = db.fetch_all_contacts_asc()
     catpower = ""

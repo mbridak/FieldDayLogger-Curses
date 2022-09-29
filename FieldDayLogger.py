@@ -111,6 +111,7 @@ contactlookup = {
 }
 os.environ.setdefault("ESCDELAY", "25")
 stdscr = curses.initscr()
+contacts = curses.newpad(1000, 80)
 height, width = stdscr.getmaxyx()
 hiscall_field = EditTextField(stdscr, y=9, x=1, length=14)
 hisclass_field = EditTextField(stdscr, y=9, x=20, length=4)
@@ -167,7 +168,6 @@ band = "40"
 mode = "CW"
 qrp = False
 highpower = False
-contacts = ""
 contactsOffset = 0
 logNumber = 0
 kbuf = ""
@@ -335,7 +335,7 @@ def resolve_dirty_records():
                 except OSError as err:
                     logging.warning("%s", err)
                 time.sleep(0.1)  # Do I need this?
-                # infobox.insertPlainText(f"Sending {count}\n")
+                # infobox.insertPlainText(f"Sending {count}\n") fixme
                 # app.processEvents()
 
 
@@ -1390,12 +1390,7 @@ def logwindow():
     """Updates the logwindow with contacts in DB"""
     global contacts, contactsOffset, logNumber
     contactsOffset = 0  # clears scroll position
-    callfiller = "          "
-    classfiller = "   "
-    sectfiller = "   "
-    modefiller = "  "
-    zerofiller = "000"
-    contacts = curses.newpad(1000, 80)
+    contacts.clear()
     log = db.fetch_all_contacts_desc()
     for logNumber, result in enumerate(log):
         logid = result.get("id")
@@ -1406,18 +1401,10 @@ def logwindow():
         the_band = result.get("band")
         the_mode = result.get("mode")
         the_power = result.get("power")
-        # grid = result.get('grid')
-        # name = result.get('opname')
-
-        logid = zerofiller[: -len(str(logid))] + str(logid)
-        opcall = opcall + callfiller[: -len(opcall)]
-        opclass = opclass + classfiller[: -len(opclass)]
-        opsection = opsection + sectfiller[: -len(opsection)]
-        the_band = the_band + sectfiller[: -len(the_band)]
-        the_mode = the_mode + modefiller[: -len(the_mode)]
         logline = (
-            f"{logid} {opcall} {opclass} {opsection} {the_datetime} "
-            f"{the_band} {the_mode} {the_power}"
+            f"{str(logid).rjust(3,'0')} {opcall.ljust(10)} {opclass.ljust(3)} "
+            f"{opsection.ljust(3)} {the_datetime} "
+            f"{the_band.ljust(3)} {the_mode.ljust(2)} {the_power}"
         )
         contacts.addstr(logNumber, 0, logline)
     stdscr.refresh()

@@ -131,7 +131,7 @@ try:
             COUNTRY = preference.get("country")
             EMAIL = preference.get("email")
     else:
-        print("-=* No Settings File Using Defaults *=-")
+        logging.debug("-=* No Settings File Using Defaults *=-")
 except IOError as exception:
     logging.critical("%s", exception)
 

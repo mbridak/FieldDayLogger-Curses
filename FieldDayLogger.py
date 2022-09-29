@@ -112,6 +112,8 @@ contactlookup = {
 os.environ.setdefault("ESCDELAY", "25")
 stdscr = curses.initscr()
 contacts = curses.newpad(1000, 80)
+seccheckwindow = curses.newpad(20, 33)
+infowindow = curses.newpad(10, 33)
 height, width = stdscr.getmaxyx()
 hiscall_field = EditTextField(stdscr, y=9, x=1, length=14)
 hisclass_field = EditTextField(stdscr, y=9, x=20, length=4)
@@ -1018,14 +1020,12 @@ def section_check(sec):
     y, x = stdscr.getyx()
     if sec == "":
         sec = "^"
-    seccheckwindow = curses.newpad(20, 33)
+    seccheckwindow.clear()
     rectangle(stdscr, 11, 0, 21, 34)
     snkeys = list(secName.keys())
     xx = list(filter(lambda y: y.startswith(sec), snkeys))
-    count = 0
-    for xxx in xx:
+    for count, xxx in enumerate(xx):
         seccheckwindow.addstr(count, 1, secName[xxx])
-        count += 1
     stdscr.refresh()
     seccheckwindow.refresh(0, 0, 12, 1, 20, 33)
     stdscr.move(y, x)
@@ -1305,6 +1305,7 @@ def postcloudlog():
 
 def cabrillo():
     """generates a cabrillo file"""
+    global infowindow
     logname = "FieldDay.log"
     log = db.fetch_all_contacts_asc()
     catpower = ""
@@ -1372,13 +1373,13 @@ def cabrillo():
     generateBandModeTally()
 
     oy, ox = stdscr.getyx()
-    window = curses.newpad(10, 33)
+    infowindow.clear()
     rectangle(stdscr, 11, 0, 21, 34)
-    window.addstr(0, 0, f"Log written to: {logname}")
-    window.addstr(1, 0, "Stats written to: Statistics.txt")
-    window.addstr(2, 0, "Writing ADIF to: FieldDay.adi")
+    infowindow.addstr(0, 0, f"Log written to: {logname}")
+    infowindow.addstr(1, 0, "Stats written to: Statistics.txt")
+    infowindow.addstr(2, 0, "Writing ADIF to: FieldDay.adi")
     stdscr.refresh()
-    window.refresh(0, 0, 12, 1, 20, 33)
+    infowindow.refresh(0, 0, 12, 1, 20, 33)
     stdscr.move(oy, ox)
     adif()
     writepreferences()
@@ -1402,7 +1403,7 @@ def logwindow():
         the_mode = result.get("mode")
         the_power = result.get("power")
         logline = (
-            f"{str(logid).rjust(3,'0')} {opcall.ljust(10)} {opclass.ljust(3)} "
+            f"{str(logid).rjust(4,'0')} {opcall.ljust(10)} {opclass.ljust(3)} "
             f"{opsection.ljust(3)} {the_datetime} "
             f"{the_band.ljust(3)} {the_mode.ljust(2)} {the_power}"
         )
@@ -1450,7 +1451,7 @@ def dupCheck(acall):
     """checks for duplicates"""
     global hisclass, hissection
     oy, ox = stdscr.getyx()
-    scpwindow = curses.newpad(1000, 33)
+    infowindow.clear()
     rectangle(stdscr, 11, 0, 21, 34)
     log = db.dup_check(acall)
     for counter, contact in enumerate(log):
@@ -1472,24 +1473,24 @@ def dupCheck(acall):
             curses.beep()
         else:
             decorate = curses.A_NORMAL
-        scpwindow.addstr(counter, 0, f"{hiscallsign}: {hisband} {hismode}", decorate)
+        infowindow.addstr(counter, 0, f"{hiscallsign}: {hisband} {hismode}", decorate)
     stdscr.refresh()
-    scpwindow.refresh(0, 0, 12, 1, 20, 33)
+    infowindow.refresh(0, 0, 12, 1, 20, 33)
     stdscr.move(oy, ox)
 
 
 def displaySCP(matches):
     """displays section check partial results"""
     oy, ox = stdscr.getyx()
-    scpwindow = curses.newpad(1000, 33)
+    infowindow.clear()
     rectangle(stdscr, 11, 0, 21, 34)
     for x in matches:
-        wy, wx = scpwindow.getyx()
+        wy, wx = infowindow.getyx()
         if (33 - wx) < len(str(x)):
-            scpwindow.move(wy + 1, 0)
-        scpwindow.addstr(f"{x} ")
+            infowindow.move(wy + 1, 0)
+        infowindow.addstr(f"{x} ")
     stdscr.refresh()
-    scpwindow.refresh(0, 0, 12, 1, 20, 33)
+    infowindow.refresh(0, 0, 12, 1, 20, 33)
     stdscr.move(oy, ox)
 
 
@@ -1682,11 +1683,11 @@ def highlightBonus(bonus):
 def setStatusMsg(msg):
     """displays a status message"""
     oy, ox = stdscr.getyx()
-    window = curses.newpad(10, 33)
+    infowindow.clear()
     rectangle(stdscr, 11, 0, 21, 34)
-    window.addstr(0, 0, str(msg))
+    infowindow.addstr(0, 0, str(msg))
     stdscr.refresh()
-    window.refresh(0, 0, 12, 1, 20, 33)
+    infowindow.refresh(0, 0, 12, 1, 20, 33)
     stdscr.move(oy, ox)
 
 
@@ -1795,7 +1796,7 @@ def setsection(s):
 def displayHelp():
     """Displays help screen"""
     wy, wx = stdscr.getyx()
-    scpwindow = curses.newpad(9, 33)
+    infowindow.clear()
     rectangle(stdscr, 11, 0, 21, 34)
     ######################################
     help_message = [
@@ -1811,9 +1812,9 @@ def displayHelp():
     ]
     stdscr.move(12, 1)
     for count, x in enumerate(help_message):
-        scpwindow.addstr(count, 1, x)
+        infowindow.addstr(count, 1, x)
     stdscr.refresh()
-    scpwindow.refresh(0, 0, 12, 1, 20, 33)
+    infowindow.refresh(0, 0, 12, 1, 20, 33)
     stdscr.move(wy, wx)
 
 

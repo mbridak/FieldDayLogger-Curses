@@ -49,6 +49,7 @@ from lib.cwinterface import CW
 from lib.edittextfield import EditTextField
 from lib.wsjtx_listener import WsjtxListener
 from lib.settings import SettingsScreen
+from lib.groupsettings import GroupSettingsScreen
 from lib.version import __version__
 
 
@@ -1835,14 +1836,14 @@ def displayHelp():
     rectangle(stdscr, 11, 0, 21, 34)
     ######################################
     help_message = [
-        ".H display this message",
-        ".S Settings screen",
-        ".Q quit the program",
-        ".E# edit a QSO",
-        ".D# delete a QSO",
-        ".B# change operating band",
-        ".M[CW,PH,DI] operating mode",
-        ".P## change logged power",
+        ".H this message",
+        ".S Settings    .G Group Settings",
+        ".Q Quit        .C Group Chat",
+        ".E# Edit a QSO",
+        ".D# Delete a QSO",
+        ".B# Change bands",
+        ".M[CW,PH,DI] Change mode",
+        ".P## Change power",
         ".L Generate Logs and stats",
     ]
     stdscr.move(12, 1)
@@ -1891,6 +1892,24 @@ def processcommand(cmd):
         entry()
         stdscr.move(9, 1)
         return
+
+    if cmd == "G":
+        editsettings = GroupSettingsScreen(preference)
+        changes = editsettings.show()
+        if changes:
+            preference = changes
+            writepreferences()
+            readpreferences()
+        stdscr.clear()
+        contacts_label()
+        logwindow()
+        sections()
+        stats()
+        displayHelp()
+        entry()
+        stdscr.move(9, 1)
+        return
+
     if cmd == "Q":  # Quit
         end_program = True
         return

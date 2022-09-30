@@ -765,13 +765,14 @@ def main(_):
                         cwt = DB.get_band_mode_tally(band, "CW")
                         dit = DB.get_band_mode_tally(band, "DI")
                         pht = DB.get_band_mode_tally(band, "PH")
-                        line = (
-                            f"{str(band).rjust(4, ' ')} "
-                            f"{str(cwt[0]).rjust(5, ' ')} "
-                            f"{str(pht[0]).rjust(5, ' ')} "
-                            f"{str(dit[0]).rjust(5, ' ')}\n"
-                        )
-                        message += line
+                        if cwt[0] + pht[0] + dit[0] > 0:
+                            line = (
+                                f"{str(band).rjust(4, ' ')} "
+                                f"{str(cwt[0]).rjust(5, ' ')} "
+                                f"{str(pht[0]).rjust(5, ' ')} "
+                                f"{str(dit[0]).rjust(5, ' ')}\n"
+                            )
+                            message += line
 
                     global QRP
                     (

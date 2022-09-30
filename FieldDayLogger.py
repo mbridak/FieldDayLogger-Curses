@@ -23,6 +23,7 @@ Contact_______: michael.bridak@gmail.com
 
 from math import radians, sin, cos, atan2, sqrt, asin, pi
 from itertools import chain
+import textwrap
 import curses
 import time
 import sys
@@ -40,7 +41,6 @@ import uuid
 import queue
 from json import loads, dumps, JSONDecodeError
 import requests
-import textwrap
 
 from lib.cat_interface import CAT
 from lib.lookup import HamDBlookup, HamQTH, QRZlookup
@@ -68,8 +68,8 @@ class Chatlog:
                     self.items.append(chunk)
             else:
                 self.items.append(line)
-        if len(self.items) > 12:
-            self.items = self.items[len(self.items) - 12 :]
+        if len(self.items) > 10:
+            self.items = self.items[len(self.items) - 10 :]
 
     def get_log(self):
         """returns a list of log items"""
@@ -140,7 +140,7 @@ stdscr = curses.initscr()
 contacts = curses.newpad(1000, 80)
 seccheckwindow = curses.newpad(20, 33)
 infowindow = curses.newpad(10, 33)
-chatwindow = curses.newwin(12, 43, 9, 36)
+chatwindow = curses.newwin(10, 43, 9, 36)
 height, width = stdscr.getmaxyx()
 hiscall_field = EditTextField(stdscr, y=9, x=1, length=14)
 hisclass_field = EditTextField(stdscr, y=9, x=20, length=4)
@@ -258,14 +258,14 @@ def has_internet():
         return False
 
 
-def fakefreq(band, mode):
+def fakefreq(local_band, local_mode):
     """
     If unable to obtain a frequency from the rig,
     This will return a sane value for a frequency mainly for the cabrillo and adif log.
     Takes a band and mode as input and returns freq in khz.
     """
-    logging.info("fakefreq: band:%s mode:%s", band, mode)
-    modes = {"CW": 0, "DI": 1, "PH": 2, "FT8": 1, "SSB": 2}
+    logging.info("fakefreq: band:%s mode:%s", local_band, local_mode)
+    local_modes = {"CW": 0, "DI": 1, "PH": 2, "FT8": 1, "SSB": 2}
     fakefreqs = {
         "160": ["1830", "1805", "1840"],
         "80": ["3530", "3559", "3970"],
@@ -283,7 +283,7 @@ def fakefreq(band, mode):
         "432": ["432070", "432200", "432100"],
         "SAT": ["144144", "144144", "144144"],
     }
-    freqtoreturn = fakefreqs[band][modes[mode]]
+    freqtoreturn = fakefreqs[local_band][local_modes[local_mode]]
     logging.info("fakefreq: returning:%s", freqtoreturn)
     return freqtoreturn
 
@@ -439,6 +439,36 @@ def display_chat(sender, body):
     except curses.error as err:
         logging.debug("%s", err)
     stdscr.move(y, x)
+
+
+def chat_input():
+    chatinput = EditTextField(stdscr, y=20, x=36, length=42)
+    chatinput.lowercase(True)
+    chatinput.get_focus()
+    stdscr.refresh()
+    while True:
+        c = stdscr.getch()
+        if c == 27:
+            # stdscr.erase()
+            return False
+        if c == 10:
+            if chatinput.text() != "":
+                packet = {"cmd": "CHAT"}
+                packet["sender"] = preference.get("mycall")
+                packet["message"] = chatinput.text()
+                bytes_to_send = bytes(dumps(packet), encoding="ascii")
+                try:
+                    server_udp.sendto(
+                        bytes_to_send, (multicast_group, int(multicast_port))
+                    )
+                except OSError as err:
+                    print(f"{err}")
+                chatinput.set_text("")
+                chatinput.get_focus()
+        chatinput.getchar(c)
+        check_udp_queue()
+        statusline()
+        time.sleep(0.01)
 
 
 def watch_udp():
@@ -1633,7 +1663,10 @@ def sections():
     """Check sections worked and display them"""
     # chatwindow = curses.newwin(12, 43, 9, 36)
     if connect_to_server:
-        rectangle(stdscr, 8, 35, 21, 78)
+        rectangle(stdscr, 8, 35, 21, 79)
+        stdscr.hline(19, 36, curses.ACS_HLINE, 43)
+        stdscr.addch(19, 35, curses.ACS_LTEE)
+        stdscr.addch(19, 79, curses.ACS_RTEE)
     else:
         workedSections()
         sectionsCol1()
@@ -1881,17 +1914,20 @@ def processcommand(cmd):
     if cmd[:1] == "H":  # Print Help
         displayHelp()
         return
-    if cmd[:1] == "K":  # Set your Call Sign
-        setcallsign(cmd[1:])
-        return
-    if cmd[:1] == "C":  # Set your class
-        setclass(cmd[1:])
-        return
-    if cmd[:1] == "S":  # Set your section
-        setsection(cmd[1:])
-        return
+    # if cmd[:1] == "K":  # Set your Call Sign
+    #     setcallsign(cmd[1:])
+    #     return
+    # if cmd[:1] == "C":  # Set your class
+    #     setclass(cmd[1:])
+    #     return
+    # if cmd[:1] == "S":  # Set your section
+    #     setsection(cmd[1:])
+    #     return
     if cmd[:1] == "L":  # Generate Cabrillo Log
         cabrillo()
+        return
+    if cmd == "C":  # Chat
+        chat_input()
         return
     curses.flash()
     curses.beep()
@@ -2278,10 +2314,10 @@ def main(s):  # pylint: disable=unused-argument
     stdscr.attrset(curses.color_pair(0))
     stdscr.clear()
     dcontacts()
-    sections()
     entry()
     logwindow()
     readpreferences()
+    sections()
     if preference["mycall"].upper() == "CALL":
         processcommand(" S")
     stats()

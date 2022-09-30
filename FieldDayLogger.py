@@ -442,9 +442,11 @@ def display_chat(sender, body):
 
 
 def chat_input():
+    """Input and send chat text"""
     chatinput = EditTextField(stdscr, y=20, x=36, length=42)
-    chatinput.lowercase(True)
+    chatinput.set_url(True)
     chatinput.get_focus()
+    chatinput.placeholder("Press ESC to exit, Enter to send.")
     stdscr.refresh()
     while True:
         c = stdscr.getch()
@@ -1926,7 +1928,7 @@ def processcommand(cmd):
     if cmd[:1] == "L":  # Generate Cabrillo Log
         cabrillo()
         return
-    if cmd == "C":  # Chat
+    if cmd == "C" and connect_to_server:  # Chat
         chat_input()
         return
     curses.flash()

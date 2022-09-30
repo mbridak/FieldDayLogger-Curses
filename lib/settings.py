@@ -96,6 +96,7 @@ class SettingsScreen:
         self.cloudlogapi.set_text(preference["cloudlogapi"])
         self.cloudlogurl = EditTextField(self.screen, 15, 16, 58, curses.A_UNDERLINE)
         self.cloudlogurl.lowercase(True)
+        self.cloudlogurl.set_url(True)
         self.cloudlogurl.set_text(preference["cloudlogurl"])
         self.cloudlogstationid = EditTextField(
             self.screen, 16, 23, 20, curses.A_UNDERLINE

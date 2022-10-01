@@ -1014,7 +1014,21 @@ def log_contact(logme):
 
 def delete_contact(contact):
     """delete contact from db"""
+    unique_id = db.get_unique_id(contact)
     db.delete_contact(contact)
+    if connect_to_server:
+        stale = datetime.now() + timedelta(seconds=30)
+        command = {}
+        command["cmd"] = "DELETE"
+        command["unique_id"] = unique_id.get("unique_id")
+        command["station"] = preference.get("mycall").upper()
+        command["expire"] = stale.isoformat()
+        server_commands.append(command)
+        bytesToSend = bytes(dumps(command), encoding="ascii")
+        try:
+            server_udp.sendto(bytesToSend, (multicast_group, int(multicast_port)))
+        except OSError as err:
+            logging.warning("%s", err)
     workedSections()
     sections()
     stats()
@@ -1935,15 +1949,6 @@ def processcommand(cmd):
     if cmd[:1] == "H":  # Print Help
         displayHelp()
         return
-    # if cmd[:1] == "K":  # Set your Call Sign
-    #     setcallsign(cmd[1:])
-    #     return
-    # if cmd[:1] == "C":  # Set your class
-    #     setclass(cmd[1:])
-    #     return
-    # if cmd[:1] == "S":  # Set your section
-    #     setsection(cmd[1:])
-    #     return
     if cmd[:1] == "L":  # Generate Cabrillo Log
         cabrillo()
         return

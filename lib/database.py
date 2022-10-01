@@ -87,7 +87,7 @@ class DataBase:
 
     def get_unique_id(self, contact) -> str:
         """get unique id"""
-        unique_id = ""
+        unique_id = {}
         if contact:
             try:
                 with sqlite3.connect(self.database) as conn:
@@ -95,7 +95,7 @@ class DataBase:
                     conn.row_factory = self.row_factory
                     cursor = conn.cursor()
                     cursor.execute(sql)
-                    unique_id = str(cursor.fetchone()[0])
+                    unique_id = cursor.fetchone()
             except sqlite3.Error as exception:
                 logging.debug("%s", exception)
         return unique_id
@@ -328,7 +328,7 @@ class DataBase:
         with sqlite3.connect(self.database) as conn:
             conn.row_factory = self.row_factory
             cursor = conn.cursor()
-            cursor.execute("select distinct section from contacts")
+            cursor.execute("select distinct section from contacts;")
             return cursor.fetchall()
 
     def contact_by_id(self, record) -> tuple:

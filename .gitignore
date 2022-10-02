@@ -1,8 +1,4 @@
 
-FieldDay\.db
-
-FieldDay\.log
-
 FieldDay\.adi
 
 Statistics\.txt
@@ -11,7 +7,7 @@ dist
 *.pyc
 README.md.backup
 debug
-debug.log
+*.log
+*.db
+*.adi
 build/*
-server_database.db
-server_debug.log

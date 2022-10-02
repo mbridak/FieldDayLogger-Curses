@@ -268,21 +268,21 @@ def fakefreq(local_band, local_mode):
     logging.info("fakefreq: band:%s mode:%s", local_band, local_mode)
     local_modes = {"CW": 0, "DI": 1, "PH": 2, "FT8": 1, "SSB": 2}
     fakefreqs = {
-        "160": ["1830", "1805", "1840"],
-        "80": ["3530", "3559", "3970"],
-        "60": ["5332", "5373", "5405"],
-        "40": ["7030", "7040", "7250"],
-        "30": ["10130", "10130", "0000"],
-        "20": ["14030", "14070", "14250"],
-        "17": ["18080", "18100", "18150"],
-        "15": ["21065", "21070", "21200"],
-        "12": ["24911", "24920", "24970"],
-        "10": ["28065", "28070", "28400"],
-        "6": ["50.030", "50300", "50125"],
-        "2": ["144030", "144144", "144250"],
-        "222": ["222100", "222070", "222100"],
-        "432": ["432070", "432200", "432100"],
-        "SAT": ["144144", "144144", "144144"],
+        "160": ["1830000", "1805000", "1840000"],
+        "80": ["3530000", "3559000", "3970000"],
+        "60": ["5332000", "5373000", "5405000"],
+        "40": ["7030000", "7040000", "7250000"],
+        "30": ["10130000", "10130000", "0000000"],
+        "20": ["14030000", "14070000", "14250000"],
+        "17": ["18080000", "18100000", "18150000"],
+        "15": ["21065000", "21070000", "21200000"],
+        "12": ["24911000", "24920000", "24970000"],
+        "10": ["28065000", "28070000", "28400000"],
+        "6": ["50030000", "50300000", "50125000"],
+        "2": ["144030000", "144144000", "144250000"],
+        "222": ["222100000", "222070000", "222100000"],
+        "432": ["432070000", "432200000", "432100000"],
+        "SAT": ["144144000", "144144000", "144144000"],
     }
     freqtoreturn = fakefreqs[local_band][local_modes[local_mode]]
     logging.info("fakefreq: returning:%s", freqtoreturn)
@@ -1038,6 +1038,19 @@ def delete_contact(contact):
 def change_contact(record):
     """Update contact in database"""
     db.change_contact(record)
+    if connect_to_server:
+        stale = datetime.now() + timedelta(seconds=30)
+        result = db.contact_by_id(record[0])
+        result["cmd"] = "UPDATE"
+        result["hiscall"] = result.get("callsign")
+        result["station"] = preference.get("mycall")
+        result["expire"] = stale.isoformat()
+        server_commands.append(result)
+        bytesToSend = bytes(dumps(result), encoding="ascii")
+        try:
+            server_udp.sendto(bytesToSend, (multicast_group, int(multicast_port)))
+        except OSError as err:
+            logging.warning("%s", err)
 
 
 def read_sections():
@@ -1432,7 +1445,7 @@ def cabrillo():
 
 def logwindow():
     """Updates the logwindow with contacts in DB"""
-    global contacts, contactsOffset, logNumber
+    global contactsOffset, logNumber
     contactsOffset = 0  # clears scroll position
     contacts.clear()
     log = db.fetch_all_contacts_desc()
@@ -1961,7 +1974,7 @@ def processcommand(cmd):
 
 def proc_key(key):
     """Process raw key presses"""
-    global inputFieldFocus, hiscall, hissection, hisclass  # Globals bad m-kay
+    global inputFieldFocus, hiscall, hissection, hisclass, oldfreq  # Globals bad m-kay
     input_field = [hiscall_field, hisclass_field, hissection_field]
     if key == Escape:
         clearentry()
@@ -2019,6 +2032,8 @@ def proc_key(key):
             "^(([0-9])?[A-z]{1,2}[0-9]/)?[A-Za-z]{1,2}[0-9]{1,3}[A-Za-z]{1,4}(/[A-Za-z0-9]{1,3})?$"
         )
         unique_id = uuid.uuid4().hex
+        if not cat_control or not rigonline:
+            oldfreq = fakefreq(band, mode)
         if re.match(isCall, hiscall):
             contact = (
                 hiscall,

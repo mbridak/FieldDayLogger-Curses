@@ -1964,6 +1964,16 @@ def processcommand(cmd):
         return
     if cmd[:1] == "L":  # Generate Cabrillo Log
         cabrillo()
+        if connect_to_server:
+            update = {
+                "cmd": "LOG",
+                "station": preference.get("mycall"),
+            }
+            bytesToSend = bytes(dumps(update), encoding="ascii")
+            try:
+                server_udp.sendto(bytesToSend, (multicast_group, int(multicast_port)))
+            except OSError as err:
+                logging.warning("%s", err)
         return
     if cmd == "C" and connect_to_server:  # Chat
         chat_input()

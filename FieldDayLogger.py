@@ -1778,8 +1778,13 @@ def statusline():
     else:
         stdscr.addstr(23, 20, f"  {mode}  ", curses.A_REVERSE)
     stdscr.addstr(23, 27, "                            ")
+
+    server_health_indicator = curses.A_REVERSE
+
     if groupcall and connect_to_server:
         showcall = groupcall
+        if datetime.now() > server_seen:
+            server_health_indicator = curses.color_pair(4)
     else:
         showcall = preference.get("mycall")
     stdscr.addstr(
@@ -1789,7 +1794,7 @@ def statusline():
         f"{preference['myclass']}|"
         f"{preference['mysection']}|"
         f"{preference['power']}w ",
-        curses.A_REVERSE,
+        server_health_indicator,
     )
     if rigonline is None:
         stdscr.addstr(23, 58, "  ")
@@ -2357,6 +2362,7 @@ def main(s):  # pylint: disable=unused-argument
         curses.init_pair(1, curses.COLOR_MAGENTA, -1)
         curses.init_pair(2, curses.COLOR_RED, -1)
         curses.init_pair(3, curses.COLOR_CYAN, -1)
+        curses.init_pair(4, curses.COLOR_WHITE, curses.COLOR_RED)
     curses.noecho()
     curses.cbreak()
     stdscr.keypad(True)

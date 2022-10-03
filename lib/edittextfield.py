@@ -2,7 +2,7 @@
 # pylint: disable=invalid-name
 
 import curses
-from curses.ascii import isalnum
+from curses.ascii import isalnum, isprint
 import logging
 import tkinter
 
@@ -22,6 +22,8 @@ class EditTextField:
         self.is_bool = False
         self.my_state = False
         self.allow_lowercase = False
+        self.allow_spaces = False
+        self.is_URL = False
 
     @staticmethod
     def get_clipboard():
@@ -88,14 +90,19 @@ class EditTextField:
                     self.textfield[: self.cursor_position]
                     + self.textfield[self.cursor_position + 1 :]
                 )
-            if isalnum(character) or character == ord("."):
+            if (
+                isalnum(character)
+                or character == ord(".")
+                or (character == ord(" ") and self.allow_spaces)
+                or (isprint(character) and self.is_URL)
+            ):
                 if len(self.textfield) < self.max_length:
                     self.textfield = (
                         f"{self.textfield[:self.cursor_position]}"
                         f"{chr(character)}"
                         f"{self.textfield[self.cursor_position:]}"
                     )
-                    if not self.allow_lowercase:
+                    if not self.allow_lowercase and not self.is_URL:
                         self.textfield = self.textfield.upper()
                     self.cursor_position += 1
             self.screen.addstr(
@@ -110,13 +117,26 @@ class EditTextField:
         """moves cursor to current position"""
         self.screen.move(self.position_y, self.position_x + self.cursor_position)
 
+    def placeholder(self, phtext: str) -> None:
+        """Show a placeholder"""
+        if self.textfield == "":
+            self.screen.addnstr(phtext, self.max_length, curses.A_DIM)
+            self._movecursor()
+
     def lowercase(self, allow):
         """Allows a field to have lowercase letters"""
         self.allow_lowercase = bool(allow)
 
+    def spaces(self, allow):
+        """Allows a field to have lowercase letters"""
+        self.allow_spaces = bool(allow)
+
     def set_bool(self, is_bool: bool) -> None:
         """Sets behaviour of input to boolian or text input"""
         self.is_bool = is_bool
+
+    def set_url(self, is_url: bool) -> None:
+        self.is_URL = is_url
 
     def get_state(self):
         """Return the boolean state"""

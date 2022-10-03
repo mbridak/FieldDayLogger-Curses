@@ -2,6 +2,8 @@
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)  [![Python: 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)  [![Made With:Curses](https://img.shields.io/badge/Made%20with-Curses-green)](https://docs.python.org/3/library/curses.html)
 
+
+
 The logger is written in Python 3, and uses the curses lib. It will work with Linux and Mac, but since the Windows curses lib is lacking it will not work properly in Windows.
 
 The log is stored in an sqlite3 database file 'FieldDay.db'. If you need to wipe everything and start clean, just delete this file. The screen size expected by the program is an 80 x 24 character terminal. 
@@ -15,22 +17,10 @@ Then make FieldDayLogger.py executable and run it within the same folder.
 ![Alt text](https://github.com/mbridak/FieldDayLogger-Curses/raw/master/pics/logger.png)
 
 
-## Caveats
-This is a simple logger meant for single op. It's not usable for clubs, there is no provision made for aggregating log data from multiple sources.
 
 # Recent changes
 
-* Lots of PEP8 compliance work, except STUPID things like 'too-many-lines'.
-* Placed things in classes, like CAT control, Callsign lookups, Database functions.
-* Moved preferences out of the main DB, and into a JSON file.
-* ReWorked scoring since rule changes for 2022.
-* Moved call and grid lookups to a thread.
-* Added CW macros. The macros are stored in cwmacros_fd.txt. This works in conjunction with [PyWinKeyerSerial](https://github.com/mbridak/PyWinKeyerSerial), [cwdaemon](https://github.com/acerion/cwdaemon) and [winkeydaemon](https://github.com/N0NB/winkeydaemon). See Initial Setup section for settings.
-* Improved text entry and editing.
-* Added auto-logging of FT8 contacts made with wsjt-x.
-* Added a proper settings screen.
-* Pressing +/- changes cw sending speed with cwdaemon.
-
+Added an aggregation server for group/club logging.
 
 # The basic functionality
 
@@ -46,11 +36,13 @@ Commands start with a period character in the callsign field and are immediately
 .D# Deletes log entry. .D26 will delete the log line starting with 026.
 .E# Edits log entry. .E26 will edit the log line starting with 026.
 .L Generate Cabrillo, ADIF and stats.
-.S Settings Screen
+.S Settings Screen.
+.G Group settings.
+.C Group Chat.
 [esc] abort input, clear all fields.
 ```
 
-After the command is entered press the TAB key to execute it.
+After the command is entered press the ENTER key to execute it.
 
 ## Initial Setup
 Before operating for the first time, you will need to edit the settings. Use the `.S` command to pull up the settings screen. You use the TAB and Shift TAB keys to move between the fields. Enter key to commit changes. Esc key to exit without saving.
@@ -132,3 +124,205 @@ The command '.L' will as far as I can tell generate a Cabrillo log file which yo
 I've used cr/lf line endings because that's what the log checker expects. So if you edit the file you might want to run the file through 'unix2dos' to make sure the checker does not choke. 
 
 I've added an ADIF export of sorts. There's a logistical problem with data modes. Field Day does not care what the data mode is, it's just recorded as a generic data contact. So I didn't bother to capture that in the database. So since most of america and maybe canada will use FT8 because it's the new hotness, I just made the data contacts map over to FT8 in ADIF. Sorry. 
+
+
+# The Aggregation Server
+
+## Group / Club logging
+
+I have added a group contact aggregating server. This can be run on the same
+computer as the client program, or on a separate dedicated PC or Raspberry Pi
+on the same network.
+
+![Picture showing main server screen](pics/server_pic.png)
+
+### Server configuration
+
+The configuration file for the server is a JSON file 'server_preferences.json'.
+
+```
+{
+    "ourcall": "W1AW",
+    "ourclass": "3A",
+    "oursection": "ORG",
+    "bonus": {
+        "emergency_power": {
+            "bool": 0,
+            "station_count": 0
+        },
+        "media_publicity": 0,
+        "public_location": 0,
+        "public_info_table": 0,
+        "message_to_section_manager": 0,
+        "message_handling": {
+            "bool": 0,
+            "message_count": 0
+        },
+        "satellite_qso": 0,
+        "w1aw_bulletin": 0,
+        "educational_activity": 0,
+        "elected_official_visit": 0,
+        "agency_representative_visit": 0,
+        "gota": 0,
+        "web_submission": 0,
+        "youth_participation": {
+            "bool": 0,
+            "youth_count": 0
+        },
+        "social_media": 0,
+        "safety_officer": 0
+    },
+    "batterypower": 1,
+    "name": "Hiram Maxim",
+    "address": "225 Main Street",
+    "city": "Newington",
+    "state": "CT",
+    "postalcode": "06111",
+    "country": "USA",
+    "email": "Hiram.Maxim@arrl.net",
+    "mullticast_group": "224.1.1.1",
+    "multicast_port": 2239,
+    "interface_ip": "0.0.0.0"
+}
+```
+
+Go ahead and edit this file before running the server. Feel free to leave the
+last 3 items as they are unless you have good reason not too. The rest should
+be straight forward.
+
+Under the bonuses section, if your group qualifies for a bonus, replace the '0'
+next to the bonus with a '1'. Three of the bonuses require a count of items
+qualifiying you for the bonus. For example Message Handling. If your group 
+qualifies for this, change the value of 'bool' to a 1, and then 'message_count'
+to the number of messages handled. 
+
+### Running The Server
+
+The server is a terminal / curses program and uses standard libraries that
+should already be installed.
+
+Just make server.py executable and run it the same way as the client. 
+
+### Client configuration for groups
+
+In the main screen, enter the `.G` command.
+
+![Picture showing settings dialog tab](pics/groupsettings.png)
+
+Go ahead and place a check next to 'Use aggregation server'. Rejoyce and let
+merriment be had by all. Be sure and have your callsign already set before
+checking this. If you forgot, Uncheck it, set your callsign and then check it.
+
+A couple of things will change on the client when this is done. You will see
+that your callsign will disappear and be replaced with your clubs call that the
+server reports. The portion of the screen where all the different ARRL sections
+are displayed will be replaced by a group chat window.
+
+### Chat Window
+
+![Picture showing chat window](pics/groupchatwindow.png)
+
+The chat window is pretty straight forward. If someone mentions you in the chat
+that line will be highlighted with an accent color. 
+
+To enter text into the chat. Enter the `.C` command.
+
+To exit the chat and return to logging contacts, press `ESC`.
+
+There is one command you can type into the chat window that may be of use.
+if you type @stats into the window the server will dump out some stats into the
+chat.
+
+```
+Server: 
+Band   CW    PH    DI
+ 160     0     0     0
+  80     0     0    25
+  40     0   159     0
+  20     1   162   126
+  15     0     0     0
+  10     0     0     0
+   6     0    17     0
+   2     0     0     0
+
+Score: 1284
+Last Hour: 271
+Last 15: 81
+```
+
+Since most people will not be able to see the screen of the server, if it has
+one at all. You may find this useful.
+
+### How to know the server is there.
+
+Most likely, the server will be in some other tent/building/area of the room.
+Every 10 seconds or so the server will send out a UDP network packet saying
+it's there. As long as your client keeps seeing these packets the group call
+indicator at the bottom of the screen will look like:
+
+![Picture showing server status](pics/serverokay.png) 
+
+But if about 30 seconds go by with no update from the server, the indicator
+will change to:
+
+![Picture showing server status](pics/servernobueno.png)
+
+Go check on it.
+
+### Logging reliability
+
+As mentioned before, We're using UDP traffic to pass data back and forth to the
+server. UDP traffic is a 'Fire and forget' method. Akin to a bunch of people 
+in the same room yelling at eachother. Everyone can hear you, but you don't 
+know if anyone heard what you said. This has both Advantages and Disadvantages. 
+One advantage is that your program is not stuck waiting for a reply or timeout 
+locking up your user interface. The disadvantage is you have no idea if anyone 
+took note of what you had said.
+
+This works fine in a local network since the traffic doesn't have to survive
+the trip through the big bad tubes of the internet. That being said, someone
+may trip on a cord, unplugging the router/switch/wireless gateway. Or someone
+may be trying to use WIFI and they are Soooooo far away you can barely see
+their tent. Or worse you have EVERYONE on WIFI, and there are packet collisions
+galore degrading your network.
+
+To account for this, the client logging program keeps track of recent packets
+sent, noting the time they were sent at. The server after getting a packet, 
+generates a response to the sender with it's unique identifyer. Once the client
+gets the response from the server, it will remove the request on the local side
+and print a little message at the bottom of the screen giving you a visual 
+confirmation that the command was acted upon by the server.
+If the server does not respond either because the response was lost or the
+request never made it to reply too. The client will resend the
+packet every 30 seconds until it gets a reply.
+
+But all this may still result in the server not having a copy of your contact.
+To account for this, when the "Generate Logs" button is pressed on the client,
+the client will resend all the logged contacts that have not gotten responses
+from the server. You can keep doing this, if need be,  until it gets them all.
+
+Chat traffic is best effort. Either everyone sees your plea for more beer or
+they don't. No retry is made for chat traffic. Just get your butt up and make 
+the trip to the cooler.
+
+### Generating the cabrillo file
+
+If any of the networked clients enters the `.L` command, the server will be 
+told to generate it's cabrillo file, it will be named 
+'WhatEverYourClubCallIs.log'
+
+If for some reason no clients exist to enter the command you can launch the 
+server with the -l flag `./server.py -l` the log will be generated and the 
+program will exit.
+
+### I'm sure there are short cummings
+
+It's early days, and I've mainly tested the operations with the client logging
+program and several simulated operators, see file in `testing/simulant.py`
+Real world use for Field Day in September is hard to come by. So I'm sure there
+are a couple of things I forgot, or didn't account for.
+
+If you are part of a group of linux using Hams, please take this for a spin and
+tell me what I missed or could do better.
+
+

@@ -4,7 +4,7 @@
 import socket
 import time
 
-multicast_port = 2237
+multicast_port = 2239
 multicast_group = "224.1.1.1"
 interface_ip = "0.0.0.0"
 

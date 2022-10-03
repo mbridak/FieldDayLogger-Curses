@@ -22,6 +22,8 @@ Contact_______: michael.bridak@gmail.com
 # pylint: disable=global-statement
 
 from math import radians, sin, cos, atan2, sqrt, asin, pi
+from itertools import chain
+import textwrap
 import curses
 import time
 import sys
@@ -35,8 +37,11 @@ from curses import wrapper
 from datetime import datetime, timedelta
 import threading
 import logging
-from json import loads, dumps
+import uuid
+import queue
+from json import loads, dumps, JSONDecodeError
 import requests
+
 from lib.cat_interface import CAT
 from lib.lookup import HamDBlookup, HamQTH, QRZlookup
 from lib.database import DataBase
@@ -44,7 +49,33 @@ from lib.cwinterface import CW
 from lib.edittextfield import EditTextField
 from lib.wsjtx_listener import WsjtxListener
 from lib.settings import SettingsScreen
+from lib.groupsettings import GroupSettingsScreen
 from lib.version import __version__
+
+
+class Chatlog:
+    """holds recent chat"""
+
+    def __init__(self):
+        self.items = []
+
+    def add_item(self, item):
+        """adds an item to the log and trims the log"""
+        lines = item.split("\n")
+        for line in lines:
+            if len(line) > 42:
+                chunks = textwrap.wrap(line, 42)
+                for chunk in chunks:
+                    self.items.append(chunk)
+            else:
+                self.items.append(line)
+        if len(self.items) > 10:
+            self.items = self.items[len(self.items) - 10 :]
+
+    def get_log(self):
+        """returns a list of log items"""
+        return self.items
+
 
 if Path("./debug").exists():
     logging.basicConfig(
@@ -86,6 +117,10 @@ preference = {
     "cwtype": 0,
     "CW_IP": "localhost",
     "CW_port": 6789,
+    "useserver": 0,
+    "multicast_group": "224.1.1.1",
+    "multicast_port": "2239",
+    "interface_ip": "0.0.0.0",
 }
 # incase preference becomes corrupt make a backup.
 reference_preference = preference.copy()
@@ -103,6 +138,10 @@ contactlookup = {
 }
 os.environ.setdefault("ESCDELAY", "25")
 stdscr = curses.initscr()
+contacts = curses.newpad(1000, 80)
+seccheckwindow = curses.newpad(20, 33)
+infowindow = curses.newpad(10, 33)
+chatwindow = curses.newwin(10, 43, 9, 36)
 height, width = stdscr.getmaxyx()
 hiscall_field = EditTextField(stdscr, y=9, x=1, length=14)
 hisclass_field = EditTextField(stdscr, y=9, x=20, length=4)
@@ -159,7 +198,6 @@ band = "40"
 mode = "CW"
 qrp = False
 highpower = False
-contacts = ""
 contactsOffset = 0
 logNumber = 0
 kbuf = ""
@@ -185,6 +223,20 @@ oldfreq = "0"
 oldmode = ""
 rigonline = None
 
+# New stuff for multiuser
+people = {}
+connect_to_server = False
+groupcall = None
+server_commands = []
+server_seen = None
+server_udp = None
+udp_fifo = queue.Queue()
+multicast_group = "224.1.1.1"
+multicast_port = 2239
+interface_ip = "0.0.0.0"
+_udpwatch = None
+chat = Chatlog()
+
 
 def relpath(filename):
     """
@@ -205,6 +257,330 @@ def has_internet():
         return True
     except OSError:
         return False
+
+
+def fakefreq(local_band, local_mode):
+    """
+    If unable to obtain a frequency from the rig,
+    This will return a sane value for a frequency mainly for the cabrillo and adif log.
+    Takes a band and mode as input and returns freq in khz.
+    """
+    logging.info("fakefreq: band:%s mode:%s", local_band, local_mode)
+    local_modes = {"CW": 0, "DI": 1, "PH": 2, "FT8": 1, "SSB": 2}
+    fakefreqs = {
+        "160": ["1830000", "1805000", "1840000"],
+        "80": ["3530000", "3559000", "3970000"],
+        "60": ["5332000", "5373000", "5405000"],
+        "40": ["7030000", "7040000", "7250000"],
+        "30": ["10130000", "10130000", "0000000"],
+        "20": ["14030000", "14070000", "14250000"],
+        "17": ["18080000", "18100000", "18150000"],
+        "15": ["21065000", "21070000", "21200000"],
+        "12": ["24911000", "24920000", "24970000"],
+        "10": ["28065000", "28070000", "28400000"],
+        "6": ["50030000", "50300000", "50125000"],
+        "2": ["144030000", "144144000", "144250000"],
+        "222": ["222100000", "222070000", "222100000"],
+        "432": ["432070000", "432200000", "432100000"],
+        "SAT": ["144144000", "144144000", "144144000"],
+    }
+    freqtoreturn = fakefreqs[local_band][local_modes[local_mode]]
+    logging.info("fakefreq: returning:%s", freqtoreturn)
+    return freqtoreturn
+
+
+def show_people():
+    """Display operators"""
+    rev_dict = {}
+    for key, value in people.items():
+        rev_dict.setdefault(value, set()).add(key)
+    result = set(
+        chain.from_iterable(
+            values for key, values in rev_dict.items() if len(values) > 1
+        )
+    )
+    # users_list.clear()
+    # users_list.insertPlainText("    Operators\n")
+    for op_callsign in people:
+        if op_callsign in result:
+            pass
+            # self.users_list.setTextColor(QtGui.QColor(245, 121, 0))
+            # self.users_list.insertPlainText(
+            #     f"{op_callsign.rjust(6,' ')} {self.people.get(op_callsign).rjust(6, ' ')}\n"
+            # )
+            # self.users_list.setTextColor(QtGui.QColor(211, 215, 207))
+        else:
+            pass
+            # self.users_list.insertPlainText(
+            #     f"{op_callsign.rjust(6,' ')} {self.people.get(op_callsign).rjust(6, ' ')}\n"
+            # )
+
+
+def show_dirty_records():
+    """Checks for dirty records, Changes Generate Log button to give visual indication."""
+    if connect_to_server:
+        result = db.count_all_dirty_contacts()
+        all_dirty_count = result.get("alldirty")
+        if all_dirty_count:
+            pass
+            # self.genLogButton.setStyleSheet("background-color: red;")
+            # self.genLogButton.setText(f"UnVfyd: {all_dirty_count}")
+        else:
+            pass
+            # self.genLogButton.setStyleSheet("background-color: rgb(92, 53, 102);")
+            # self.genLogButton.setText("Generate Logs")
+
+
+def resolve_dirty_records():
+    """Go through dirty records and submit them to the server."""
+    if connect_to_server:
+        records = db.fetch_all_dirty_contacts()
+        infowindow.clear()
+        infowindow.addstr(f"Resolving {len(records)} unsent contacts.\n")
+        if records:
+            infowindow.addstr("sending")
+            for dirty_contact in records:
+                contact = {}
+                contact["cmd"] = "POST"
+                contact["station"] = preference.get("mycall")
+                stale = datetime.now() + timedelta(seconds=30)
+                contact["expire"] = stale.isoformat()
+                contact["unique_id"] = dirty_contact.get("unique_id")
+                contact["hiscall"] = dirty_contact.get("callsign")
+                contact["class"] = dirty_contact.get("class")
+                contact["section"] = dirty_contact.get("section")
+                contact["date_and_time"] = dirty_contact.get("date_time")
+                contact["frequency"] = dirty_contact.get("frequency")
+                contact["band"] = dirty_contact.get("band")
+                contact["mode"] = dirty_contact.get("mode")
+                contact["power"] = dirty_contact.get("power")
+                contact["grid"] = dirty_contact.get("grid")
+                contact["opname"] = dirty_contact.get("opname")
+                server_commands.append(contact)
+                bytesToSend = bytes(dumps(contact), encoding="ascii")
+                try:
+                    server_udp.sendto(
+                        bytesToSend,
+                        (multicast_group, int(multicast_port)),
+                    )
+                except OSError as err:
+                    logging.warning("%s", err)
+                time.sleep(0.1)  # Do I need this?
+                infowindow.addstr(".")
+                infowindow.refresh(0, 0, 12, 1, 20, 33)
+
+
+def clear_dirty_flag(unique_id):
+    """clear the dirty flag on record once response is returned from server."""
+    db.clear_dirty_flag(unique_id)
+    show_dirty_records()
+
+
+def remove_confirmed_commands(data):
+    """Removed confirmed commands from the sent commands list."""
+    for index, item in enumerate(server_commands):
+        if item.get("unique_id") == data.get("unique_id") and item.get(
+            "cmd"
+        ) == data.get("subject"):
+            server_commands.pop(index)
+            clear_dirty_flag(data.get("unique_id"))
+            # infoline.setText(f"Confirmed {data.get('subject')}")
+
+
+def check_for_stale_commands():
+    """
+    Check through server commands to see if there has not been a reply in 30 seconds.
+    Resubmits those that are stale.
+    """
+    if connect_to_server:
+        for index, item in enumerate(server_commands):
+            expired = datetime.strptime(item.get("expire"), "%Y-%m-%dT%H:%M:%S.%f")
+            if datetime.now() > expired:
+                newexpire = datetime.now() + timedelta(seconds=30)
+                server_commands[index]["expire"] = newexpire.isoformat()
+                bytesToSend = bytes(dumps(item), encoding="ascii")
+                try:
+                    server_udp.sendto(
+                        bytesToSend,
+                        (multicast_group, int(multicast_port)),
+                    )
+                except OSError as err:
+                    logging.warning("%s", err)
+
+
+def send_chat():
+    """Sends UDP chat packet with text entered in chat_entry field."""
+    message = "stub"  # chat_entry.text()
+    packet = {"cmd": "CHAT"}
+    packet["sender"] = preference.get("mycall")
+    packet["message"] = message
+    bytesToSend = bytes(dumps(packet), encoding="ascii")
+    try:
+        server_udp.sendto(bytesToSend, (multicast_group, int(multicast_port)))
+    except OSError as err:
+        logging.warning("%s", err)
+    # chat_entry.setText("")
+
+
+def display_chat(sender, body):
+    """Displays the chat history."""
+    y, x = stdscr.getyx()
+    rectangle(stdscr, 8, 35, 21, 79)
+    stdscr.refresh()
+    chat.add_item(f"{sender}: {body}")
+    try:
+        chatwindow.clear()
+        for display_line, display_item in enumerate(chat.get_log()):
+            if preference.get("mycall") in display_item:
+                decorate = curses.color_pair(1)
+            else:
+                decorate = curses.A_NORMAL
+            chatwindow.addstr(display_line, 0, display_item, decorate)
+        chatwindow.refresh()
+    except curses.error as err:
+        logging.debug("%s", err)
+    stdscr.move(y, x)
+
+
+def chat_input():
+    """Input and send chat text"""
+    chatinput = EditTextField(stdscr, y=20, x=36, length=42)
+    chatinput.set_url(True)
+    chatinput.get_focus()
+    chatinput.placeholder("Press ESC to exit, Enter to send.")
+    stdscr.refresh()
+    while True:
+        c = stdscr.getch()
+        if c == 27:
+            # stdscr.erase()
+            return False
+        if c == 10:
+            if chatinput.text() != "":
+                packet = {"cmd": "CHAT"}
+                packet["sender"] = preference.get("mycall")
+                packet["message"] = chatinput.text()
+                bytes_to_send = bytes(dumps(packet), encoding="ascii")
+                try:
+                    server_udp.sendto(
+                        bytes_to_send, (multicast_group, int(multicast_port))
+                    )
+                except OSError as err:
+                    print(f"{err}")
+                chatinput.set_text("")
+                chatinput.get_focus()
+        chatinput.getchar(c)
+        check_udp_queue()
+        statusline()
+        time.sleep(0.01)
+
+
+def watch_udp():
+    """Puts UDP datagrams in a FIFO queue"""
+    while True:
+        if connect_to_server:
+            try:
+                datagram = server_udp.recv(1500)
+            except socket.timeout:
+                time.sleep(1)
+                continue
+            if datagram:
+                udp_fifo.put(datagram)
+        else:
+            time.sleep(1)
+
+
+def check_udp_queue():
+    """checks the UDP datagram queue."""
+    global server_seen
+    global groupcall
+    if server_seen:
+        if datetime.now() > server_seen:
+            pass
+            # group_call_indicator.setStyleSheet(
+            #     "border: 1px solid green;\nbackground-color: red;\ncolor: yellow;"
+            # )
+    while not udp_fifo.empty():
+        datagram = udp_fifo.get()
+        try:
+            json_data = loads(datagram.decode())
+        except UnicodeDecodeError as err:
+            the_error = f"Not Unicode: {err}\n{datagram}"
+            logging.info(the_error)
+            continue
+        except JSONDecodeError as err:
+            the_error = f"Not JSON: {err}\n{datagram}"
+            logging.info(the_error)
+            continue
+        logging.info("%s", json_data)
+
+        if json_data.get("cmd") == "PING":
+            if json_data.get("station"):
+                band_mode = f"{json_data.get('band')} {json_data.get('mode')}"
+                if people.get(json_data.get("station")) != band_mode:
+                    people[json_data.get("station")] = band_mode
+                show_people()
+            if json_data.get("host"):
+                server_seen = datetime.now() + timedelta(seconds=30)
+                # group_call_indicator.setStyleSheet("border: 1px solid green;")
+            continue
+
+        if json_data.get("cmd") == "RESPONSE":
+            if json_data.get("recipient") == preference.get("mycall"):
+                if json_data.get("subject") == "HOSTINFO":
+                    groupcall = str(json_data.get("groupcall"))
+                    preference["myclass"] = str(json_data.get("groupclass"))
+                    preference["mysection"] = str(json_data.get("groupsection"))
+                    server_seen = datetime.now() + timedelta(seconds=30)
+                    # group_call_indicator.setStyleSheet("border: 1px solid green;")
+                    return
+                if json_data.get("subject") == "LOG":
+                    pass
+                    # infoline.setText("Server Generated Log.")
+                remove_confirmed_commands(json_data)
+                continue
+
+        if json_data.get("cmd") == "CHAT":
+            display_chat(json_data.get("sender"), json_data.get("message"))
+            continue
+
+        if json_data.get("cmd") == "GROUPQUERY":
+            if groupcall:
+                send_status_udp()
+
+
+def query_group():
+    """Sends request to server asking for group call/class/section."""
+    update = {
+        "cmd": "GROUPQUERY",
+        "station": preference["mycall"],
+    }
+    bytesToSend = bytes(dumps(update), encoding="ascii")
+    try:
+        server_udp.sendto(bytesToSend, (multicast_group, int(multicast_port)))
+    except OSError as err:
+        logging.warning("%s", err)
+
+
+def send_status_udp():
+    """Send status update to server informing of our band and mode"""
+    if connect_to_server:
+        if groupcall is None and preference["mycall"] != "":
+            query_group()
+            return
+
+        update = {
+            "cmd": "PING",
+            "mode": mode,
+            "band": band,
+            "station": preference["mycall"],
+        }
+        bytesToSend = bytes(dumps(update), encoding="ascii")
+        try:
+            server_udp.sendto(bytesToSend, (multicast_group, int(multicast_port)))
+        except OSError as err:
+            logging.warning("%s", err)
+
+        check_for_stale_commands()
 
 
 def clearcontactlookup():
@@ -416,6 +792,7 @@ def poll_radio():
             setmode(str(getmode(newmode)))
     else:
         rigonline = None
+        oldfreq = fakefreq(band, mode)
 
 
 def read_cw_macros():
@@ -493,7 +870,8 @@ def readpreferences():
     """
     Restore preferences if they exist, otherwise create some sane defaults.
     """
-    global preference, cat_control, look_up, cw
+    global preference, cat_control, look_up, cw, _udpwatch
+    global connect_to_server, server_udp, groupcall, multicast_group, multicast_port, interface_ip
     logging.debug("")
     try:
         if os.path.exists("./fd_preferences.json"):
@@ -501,7 +879,6 @@ def readpreferences():
                 "./fd_preferences.json", "rt", encoding="utf-8"
             ) as file_descriptor:
                 preference = loads(file_descriptor.read())
-                logging.info("%s", preference)
                 preference["mycall"] = preference["mycall"].upper()
                 preference["myclass"] = preference["myclass"].upper()
                 preference["mysection"] = preference["mysection"].upper()
@@ -547,6 +924,37 @@ def readpreferences():
                 daemon=True,
             )
             _thethread.start()
+        connect_to_server = preference.get("useserver")
+        multicast_group = preference.get("multicast_group")
+        multicast_port = preference.get("multicast_port")
+        interface_ip = preference.get("interface_ip")
+        if connect_to_server:
+            logging.info(
+                "Connecting: %s:%s %s",
+                multicast_group,
+                multicast_port,
+                interface_ip,
+            )
+            # chat_window.show()
+            server_udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            server_udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            server_udp.bind(("", int(multicast_port)))
+            mreq = socket.inet_aton(multicast_group) + socket.inet_aton(interface_ip)
+            server_udp.setsockopt(
+                socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, bytes(mreq)
+            )
+            server_udp.settimeout(0.01)
+
+            if _udpwatch is None:
+                _udpwatch = threading.Thread(
+                    target=watch_udp,
+                    daemon=True,
+                )
+                _udpwatch.start()
+        else:
+            groupcall = None
+            # mycallEntry.show()
+            # chat_window.hide()
         cloudlogauth()
     except KeyError as err:
         logging.warning("Corrupt preference, %s, loading clean version.", err)
@@ -572,16 +980,55 @@ def writepreferences():
 def log_contact(logme):
     """Log a contact to the db"""
     db.log_contact(logme)
+    if connect_to_server:
+        stale = datetime.now() + timedelta(seconds=30)
+        contact = {
+            "cmd": "POST",
+            "hiscall": logme[0],
+            "class": logme[1],
+            "section": logme[2],
+            "mode": logme[5],
+            "band": logme[4],
+            "frequency": logme[3],
+            "date_and_time": logme[4],
+            "power": logme[6],
+            "grid": logme[7],
+            "opname": logme[8],
+            "station": preference.get("mycall"),
+            "unique_id": logme[9],
+            "expire": stale.isoformat(),
+        }
+        server_commands.append(contact)
+        bytesToSend = bytes(dumps(contact), encoding="ascii")
+        try:
+            server_udp.sendto(bytesToSend, (multicast_group, int(multicast_port)))
+        except OSError as err:
+            logging.warning("%s", err)
     workedSections()
     sections()
     stats()
     logwindow()
     postcloudlog()
+    clearcontactlookup()
 
 
 def delete_contact(contact):
     """delete contact from db"""
+    unique_id = db.get_unique_id(contact)
     db.delete_contact(contact)
+    if connect_to_server:
+        stale = datetime.now() + timedelta(seconds=30)
+        command = {}
+        command["cmd"] = "DELETE"
+        command["unique_id"] = unique_id.get("unique_id")
+        command["station"] = preference.get("mycall").upper()
+        command["expire"] = stale.isoformat()
+        server_commands.append(command)
+        bytesToSend = bytes(dumps(command), encoding="ascii")
+        try:
+            server_udp.sendto(bytesToSend, (multicast_group, int(multicast_port)))
+        except OSError as err:
+            logging.warning("%s", err)
     workedSections()
     sections()
     stats()
@@ -591,31 +1038,39 @@ def delete_contact(contact):
 def change_contact(record):
     """Update contact in database"""
     db.change_contact(record)
+    if connect_to_server:
+        stale = datetime.now() + timedelta(seconds=30)
+        result = db.contact_by_id(record[0])
+        result["cmd"] = "UPDATE"
+        result["hiscall"] = result.get("callsign")
+        result["station"] = preference.get("mycall")
+        result["expire"] = stale.isoformat()
+        server_commands.append(result)
+        bytesToSend = bytes(dumps(result), encoding="ascii")
+        try:
+            server_udp.sendto(bytesToSend, (multicast_group, int(multicast_port)))
+        except OSError as err:
+            logging.warning("%s", err)
 
 
 def read_sections():
     """
     Reads in the ARRL sections into some internal dictionaries.
     """
+    global secName, secState, secPartial
     try:
         with open(
-            relpath("./data/arrl_sect.dat"), "r", encoding="utf-8"
+            relpath("./data/secname.json"), "rt", encoding="utf-8"
         ) as file_descriptor:
-            while 1:
-                line = file_descriptor.readline().strip()  # read a line and put in db
-                if not line:
-                    break
-                if line[0] == "#":
-                    continue
-                try:
-                    _, state, canum, abbrev, name = str.split(line, None, 4)
-                    secName[abbrev] = abbrev + " " + name + " " + canum
-                    secState[abbrev] = state
-                    for i in range(len(abbrev) - 1):
-                        partial = abbrev[: -i - 1]
-                        secPartial[partial] = 1
-                except ValueError as exception:
-                    logging.warning("%s", exception)
+            secName = loads(file_descriptor.read())
+        with open(
+            relpath("./data/secstate.json"), "rt", encoding="utf-8"
+        ) as file_descriptor:
+            secState = loads(file_descriptor.read())
+        with open(
+            relpath("./data/secpartial.json"), "rt", encoding="utf-8"
+        ) as file_descriptor:
+            secPartial = loads(file_descriptor.read())
     except IOError as exception:
         logging.critical("read error: %s", exception)
 
@@ -625,21 +1080,19 @@ def section_check(sec):
     y, x = stdscr.getyx()
     if sec == "":
         sec = "^"
-    seccheckwindow = curses.newpad(20, 33)
+    seccheckwindow.clear()
     rectangle(stdscr, 11, 0, 21, 34)
     snkeys = list(secName.keys())
     xx = list(filter(lambda y: y.startswith(sec), snkeys))
-    count = 0
-    for xxx in xx:
+    for count, xxx in enumerate(xx):
         seccheckwindow.addstr(count, 1, secName[xxx])
-        count += 1
     stdscr.refresh()
     seccheckwindow.refresh(0, 0, 12, 1, 20, 33)
     stdscr.move(y, x)
 
 
 def readSCP():
-    """read section check partial file"""
+    """read super check partial file"""
     global scp
     f = open(relpath("./data/MASTER.SCP"), "r", encoding="utf-8")
     scp = f.readlines()
@@ -726,7 +1179,7 @@ def getbands():
     x = db.get_bands()
     if x:
         for count in x:
-            bandlist.append(count[0])
+            bandlist.append(count.get("band"))
         return bandlist
     return []
 
@@ -744,7 +1197,10 @@ def generateBandModeTally():
                 dit = getBandModeTally(b, "DI")
                 pht = getBandModeTally(b, "PH")
                 print(
-                    f"Band:\t{b}\t{cwt[0]}\t{cwt[1]}\t{dit[0]}\t{dit[1]}\t{pht[0]}\t{pht[1]}",
+                    f"Band:\t{b}\t"
+                    f"{cwt.get('tally')}\t{cwt.get('mpow')}\t"
+                    f"{dit.get('tally')}\t{dit.get('mpow')}\t"
+                    f"{pht.get('tally')}\t{pht.get('mpow')}",
                     end="\r\n",
                     file=file_descriptor,
                 )
@@ -770,19 +1226,16 @@ def adif():
     with open(logname, "w", encoding="UTF-8") as file_descriptor:
         print("<ADIF_VER:5>2.2.0", end="\r\n", file=file_descriptor)
         print("<EOH>", end="\r\n", file=file_descriptor)
-        for contact in log:
-            (
-                _,
-                opcall,
-                opclass,
-                opsection,
-                the_datetime,
-                the_band,
-                the_mode,
-                _,
-                grid,
-                name,
-            ) = contact
+        for result in log:
+            opcall = result.get("callsign")
+            opclass = result.get("class")
+            opsection = result.get("section")
+            the_datetime = result.get("date_time")
+            the_band = result.get("band")
+            the_mode = result.get("mode")
+            grid = result.get("grid")
+            name = result.get("opname")
+
             if the_mode == "DI":
                 the_mode = "FT8"
             if the_mode == "PH":
@@ -853,10 +1306,6 @@ def adif():
             print("<COMMENT:14>ARRL-FIELD-DAY", end="\r\n", file=file_descriptor)
             print("<EOR>", end="\r\n", file=file_descriptor)
             print("", end="\r\n", file=file_descriptor)
-    yy, xx = stdscr.getyx()
-    stdscr.move(15, 1)
-    stdscr.addstr("Done.                     ")
-    stdscr.move(yy, xx)
     stdscr.refresh()
 
 
@@ -864,18 +1313,16 @@ def postcloudlog():
     """posts a contacts to cloudlog."""
     if not preference["cloudlogapi"] or not cloudlogauthenticated:
         return
-    (
-        _,
-        opcall,
-        opclass,
-        opsection,
-        the_datetime,
-        the_band,
-        the_mode,
-        _,
-        grid,
-        name,
-    ) = db.fetch_last_contact()
+    result = db.fetch_last_contact()
+    opcall = result.get("callsign")
+    opclass = result.get("class")
+    opsection = result.get("section")
+    the_datetime = result.get("date_time")
+    the_band = result.get("band")
+    the_mode = result.get("mode")
+    grid = result.get("grid")
+    name = result.get("opname")
+
     if the_mode == "CW":
         rst = "599"
     else:
@@ -915,7 +1362,7 @@ def postcloudlog():
 def cabrillo():
     """generates a cabrillo file"""
     logname = "FieldDay.log"
-    log = db.fetch_all_contacts_under101_asc()
+    log = db.fetch_all_contacts_asc()
     catpower = ""
     if qrp:
         catpower = "QRP"
@@ -948,19 +1395,16 @@ def cabrillo():
         print("ADDRESS-COUNTRY: ", end="\r\n", file=file_descriptor)
         print("EMAIL: ", end="\r\n", file=file_descriptor)
         print("CREATED-BY: K6GTE Field Day Logger", end="\r\n", file=file_descriptor)
-        for contact in log:
-            (
-                _,
-                opcall,
-                opclass,
-                opsection,
-                the_datetime,
-                the_band,
-                the_mode,
-                _,
-                _,
-                _,
-            ) = contact
+        for result in log:
+            opcall = result.get("callsign")
+            opclass = result.get("class")
+            opsection = result.get("section")
+            the_datetime = result.get("date_time")
+            the_band = result.get("band")
+            the_mode = result.get("mode")
+            # grid = result.get('grid')
+            # name = result.get('opname')
+
             if the_mode == "DI":
                 the_mode = "DG"
             loggeddate = the_datetime[:10]
@@ -984,13 +1428,14 @@ def cabrillo():
     generateBandModeTally()
 
     oy, ox = stdscr.getyx()
-    window = curses.newpad(10, 33)
+    infowindow.clear()
     rectangle(stdscr, 11, 0, 21, 34)
-    window.addstr(0, 0, f"Log written to: {logname}")
-    window.addstr(1, 0, "Stats written to: Statistics.txt")
-    window.addstr(2, 0, "Writing ADIF to: FieldDay.adi")
+    resolve_dirty_records()
+    infowindow.addstr(f"\nLog written to: {logname}\n")
+    infowindow.addstr("Stats written to: Statistics.txt\n")
+    infowindow.addstr("Writing ADIF to: FieldDay.adi\n")
     stdscr.refresh()
-    window.refresh(0, 0, 12, 1, 20, 33)
+    infowindow.refresh(0, 0, 12, 1, 20, 33)
     stdscr.move(oy, ox)
     adif()
     writepreferences()
@@ -1000,37 +1445,23 @@ def cabrillo():
 
 def logwindow():
     """Updates the logwindow with contacts in DB"""
-    global contacts, contactsOffset, logNumber
+    global contactsOffset, logNumber
     contactsOffset = 0  # clears scroll position
-    callfiller = "          "
-    classfiller = "   "
-    sectfiller = "   "
-    modefiller = "  "
-    zerofiller = "000"
-    contacts = curses.newpad(1000, 80)
+    contacts.clear()
     log = db.fetch_all_contacts_desc()
-    for logNumber, x in enumerate(log):
-        (
-            logid,
-            opcall,
-            opclass,
-            opsection,
-            the_datetime,
-            the_band,
-            the_mode,
-            the_power,
-            _,
-            _,
-        ) = x
-        logid = zerofiller[: -len(str(logid))] + str(logid)
-        opcall = opcall + callfiller[: -len(opcall)]
-        opclass = opclass + classfiller[: -len(opclass)]
-        opsection = opsection + sectfiller[: -len(opsection)]
-        the_band = the_band + sectfiller[: -len(the_band)]
-        the_mode = the_mode + modefiller[: -len(the_mode)]
+    for logNumber, result in enumerate(log):
+        logid = result.get("id")
+        opcall = result.get("callsign")
+        opclass = result.get("class")
+        opsection = result.get("section")
+        the_datetime = result.get("date_time")
+        the_band = result.get("band")
+        the_mode = result.get("mode")
+        the_power = result.get("power")
         logline = (
-            f"{logid} {opcall} {opclass} {opsection} {the_datetime} "
-            f"{the_band} {the_mode} {the_power}"
+            f"{str(logid).rjust(4,'0')} {opcall.ljust(10)} {opclass.ljust(3)} "
+            f"{opsection.ljust(3)} {the_datetime} "
+            f"{the_band.ljust(3)} {the_mode.ljust(2)} {the_power}"
         )
         contacts.addstr(logNumber, 0, logline)
     stdscr.refresh()
@@ -1076,12 +1507,16 @@ def dupCheck(acall):
     """checks for duplicates"""
     global hisclass, hissection
     oy, ox = stdscr.getyx()
-    scpwindow = curses.newpad(1000, 33)
+    infowindow.clear()
     rectangle(stdscr, 11, 0, 21, 34)
     log = db.dup_check(acall)
     for counter, contact in enumerate(log):
         decorate = ""
-        hiscallsign, hisclass, hissection, hisband, hismode = contact
+        hiscallsign = contact.get("callsign")
+        hisclass = contact.get("class")
+        hissection = contact.get("section")
+        hisband = contact.get("band")
+        hismode = contact.get("mode")
         if hissection_field.text() == "":
             hissection_field.set_text(hissection)
             hissection_field.get_focus()
@@ -1094,39 +1529,35 @@ def dupCheck(acall):
             curses.beep()
         else:
             decorate = curses.A_NORMAL
-        scpwindow.addstr(counter, 0, f"{hiscallsign}: {hisband} {hismode}", decorate)
+        infowindow.addstr(counter, 0, f"{hiscallsign}: {hisband} {hismode}", decorate)
     stdscr.refresh()
-    scpwindow.refresh(0, 0, 12, 1, 20, 33)
+    infowindow.refresh(0, 0, 12, 1, 20, 33)
     stdscr.move(oy, ox)
 
 
 def displaySCP(matches):
     """displays section check partial results"""
     oy, ox = stdscr.getyx()
-    scpwindow = curses.newpad(1000, 33)
+    infowindow.clear()
     rectangle(stdscr, 11, 0, 21, 34)
     for x in matches:
-        wy, wx = scpwindow.getyx()
+        wy, wx = infowindow.getyx()
         if (33 - wx) < len(str(x)):
-            scpwindow.move(wy + 1, 0)
-        scpwindow.addstr(f"{x} ")
+            infowindow.move(wy + 1, 0)
+        infowindow.addstr(f"{x} ")
     stdscr.refresh()
-    scpwindow.refresh(0, 0, 12, 1, 20, 33)
+    infowindow.refresh(0, 0, 12, 1, 20, 33)
     stdscr.move(oy, ox)
 
 
 def workedSections():
     """finds all sections worked"""
     global wrkdsections
-    all_rows = db.sections()
-    wrkdsections = str(all_rows)
-    wrkdsections = (
-        wrkdsections.replace("('", "")
-        .replace("',), ", ",")
-        .replace("',)]", "")
-        .replace("[", "")
-        .split(",")
-    )
+    result = db.sections()
+    wrkdsections = []
+    logging.debug("%s", result)
+    for section in result:
+        wrkdsections.append(section.get("section"))
 
 
 def workedSection(section):
@@ -1260,12 +1691,19 @@ def sectionsCol5():
 
 def sections():
     """Check sections worked and display them"""
-    workedSections()
-    sectionsCol1()
-    sectionsCol2()
-    sectionsCol3()
-    sectionsCol4()
-    sectionsCol5()
+    # chatwindow = curses.newwin(12, 43, 9, 36)
+    if connect_to_server:
+        rectangle(stdscr, 8, 35, 21, 79)
+        stdscr.hline(19, 36, curses.ACS_HLINE, 43)
+        stdscr.addch(19, 35, curses.ACS_LTEE)
+        stdscr.addch(19, 79, curses.ACS_RTEE)
+    else:
+        workedSections()
+        sectionsCol1()
+        sectionsCol2()
+        sectionsCol3()
+        sectionsCol4()
+        sectionsCol5()
     stdscr.refresh()
 
 
@@ -1308,11 +1746,11 @@ def highlightBonus(bonus):
 def setStatusMsg(msg):
     """displays a status message"""
     oy, ox = stdscr.getyx()
-    window = curses.newpad(10, 33)
+    infowindow.clear()
     rectangle(stdscr, 11, 0, 21, 34)
-    window.addstr(0, 0, str(msg))
+    infowindow.addstr(0, 0, str(msg))
     stdscr.refresh()
-    window.refresh(0, 0, 12, 1, 20, 33)
+    infowindow.refresh(0, 0, 12, 1, 20, 33)
     stdscr.move(oy, ox)
 
 
@@ -1340,14 +1778,23 @@ def statusline():
     else:
         stdscr.addstr(23, 20, f"  {mode}  ", curses.A_REVERSE)
     stdscr.addstr(23, 27, "                            ")
+
+    server_health_indicator = curses.A_REVERSE
+
+    if groupcall and connect_to_server:
+        showcall = groupcall
+        if datetime.now() > server_seen:
+            server_health_indicator = curses.color_pair(4)
+    else:
+        showcall = preference.get("mycall")
     stdscr.addstr(
         23,
         27,
-        f" {preference['mycall']}|"
+        f" {showcall}|"
         f"{preference['myclass']}|"
         f"{preference['mysection']}|"
         f"{preference['power']}w ",
-        curses.A_REVERSE,
+        server_health_indicator,
     )
     if rigonline is None:
         stdscr.addstr(23, 58, "  ")
@@ -1417,25 +1864,25 @@ def setsection(s):
 def displayHelp():
     """Displays help screen"""
     wy, wx = stdscr.getyx()
-    scpwindow = curses.newpad(9, 33)
+    infowindow.clear()
     rectangle(stdscr, 11, 0, 21, 34)
     ######################################
     help_message = [
-        ".H display this message",
-        ".S Settings screen",
-        ".Q quit the program",
-        ".E# edit a QSO",
-        ".D# delete a QSO",
-        ".B# change operating band",
-        ".M[CW,PH,DI] operating mode",
-        ".P## change logged power",
+        ".H this message",
+        ".S Settings    .G Group Settings",
+        ".Q Quit        .C Group Chat",
+        ".E# Edit a QSO",
+        ".D# Delete a QSO",
+        ".B# Change bands",
+        ".M[CW,PH,DI] Change mode",
+        ".P## Change power",
         ".L Generate Logs and stats",
     ]
     stdscr.move(12, 1)
     for count, x in enumerate(help_message):
-        scpwindow.addstr(count, 1, x)
+        infowindow.addstr(count, 1, x)
     stdscr.refresh()
-    scpwindow.refresh(0, 0, 12, 1, 20, 33)
+    infowindow.refresh(0, 0, 12, 1, 20, 33)
     stdscr.move(wy, wx)
 
 
@@ -1477,6 +1924,24 @@ def processcommand(cmd):
         entry()
         stdscr.move(9, 1)
         return
+
+    if cmd == "G":
+        editsettings = GroupSettingsScreen(preference)
+        changes = editsettings.show()
+        if changes:
+            preference = changes
+            writepreferences()
+            readpreferences()
+        stdscr.clear()
+        contacts_label()
+        logwindow()
+        sections()
+        stats()
+        displayHelp()
+        entry()
+        stdscr.move(9, 1)
+        return
+
     if cmd == "Q":  # Quit
         end_program = True
         return
@@ -1502,17 +1967,21 @@ def processcommand(cmd):
     if cmd[:1] == "H":  # Print Help
         displayHelp()
         return
-    if cmd[:1] == "K":  # Set your Call Sign
-        setcallsign(cmd[1:])
-        return
-    if cmd[:1] == "C":  # Set your class
-        setclass(cmd[1:])
-        return
-    if cmd[:1] == "S":  # Set your section
-        setsection(cmd[1:])
-        return
     if cmd[:1] == "L":  # Generate Cabrillo Log
         cabrillo()
+        if connect_to_server:
+            update = {
+                "cmd": "LOG",
+                "station": preference.get("mycall"),
+            }
+            bytesToSend = bytes(dumps(update), encoding="ascii")
+            try:
+                server_udp.sendto(bytesToSend, (multicast_group, int(multicast_port)))
+            except OSError as err:
+                logging.warning("%s", err)
+        return
+    if cmd == "C" and connect_to_server:  # Chat
+        chat_input()
         return
     curses.flash()
     curses.beep()
@@ -1520,7 +1989,7 @@ def processcommand(cmd):
 
 def proc_key(key):
     """Process raw key presses"""
-    global inputFieldFocus, hiscall, hissection, hisclass  # Globals bad m-kay
+    global inputFieldFocus, hiscall, hissection, hisclass, oldfreq  # Globals bad m-kay
     input_field = [hiscall_field, hisclass_field, hissection_field]
     if key == Escape:
         clearentry()
@@ -1577,16 +2046,21 @@ def proc_key(key):
         isCall = re.compile(
             "^(([0-9])?[A-z]{1,2}[0-9]/)?[A-Za-z]{1,2}[0-9]{1,3}[A-Za-z]{1,4}(/[A-Za-z0-9]{1,3})?$"
         )
+        unique_id = uuid.uuid4().hex
+        if not cat_control or not rigonline:
+            oldfreq = fakefreq(band, mode)
         if re.match(isCall, hiscall):
             contact = (
                 hiscall,
                 hisclass,
                 hissection,
+                oldfreq,
                 band,
                 mode,
                 int(preference["power"]),
                 contactlookup["grid"],
                 contactlookup["name"],
+                unique_id,
             )
             clearDisplayInfo()
             log_contact(contact)
@@ -1784,7 +2258,16 @@ def editQSO(q):
     if not log:
         return
     qso = ["", "", "", "", "", "", "", "", "", ""]
-    qso[0], qso[1], qso[2], qso[3], qso[4], qso[5], qso[6], qso[7], qso[8], qso[9] = log
+    qso[0] = log.get("id")
+    qso[1] = log.get("callsign")
+    qso[2] = log.get("class")
+    qso[3] = log.get("section")
+    qso[4] = log.get("date_time")
+    qso[5] = log.get("band")
+    qso[6] = log.get("mode")
+    qso[7] = log.get("power")
+    qso[8] = log.get("grid")
+    qso[9] = log.get("opname")
     qsoew = curses.newwin(10, 40, 6, 10)
     qsoew.keypad(True)
     qsoew.nodelay(True)
@@ -1799,15 +2282,15 @@ def editQSO(q):
     qso_edit_field_7 = EditTextField(qsoew, 6, 10, 2)
     qso_edit_field_8 = EditTextField(qsoew, 7, 10, 3)
 
-    qso_edit_field_1.set_text(log[1])
-    qso_edit_field_2.set_text(log[2])
-    qso_edit_field_3.set_text(log[3])
-    dt = log[4].split()
+    qso_edit_field_1.set_text(log.get("callsign"))
+    qso_edit_field_2.set_text(log.get("class"))
+    qso_edit_field_3.set_text(log.get("section"))
+    dt = log.get("date_time").split()
     qso_edit_field_4.set_text(dt[0])
     qso_edit_field_5.set_text(dt[1])
-    qso_edit_field_6.set_text(log[5])
-    qso_edit_field_7.set_text(log[6])
-    qso_edit_field_8.set_text(str(log[7]))
+    qso_edit_field_6.set_text(log.get("band"))
+    qso_edit_field_7.set_text(log.get("mode"))
+    qso_edit_field_8.set_text(str(log.get("power")))
 
     qso_edit_fields = [
         qso_edit_field_1,
@@ -1879,6 +2362,7 @@ def main(s):  # pylint: disable=unused-argument
         curses.init_pair(1, curses.COLOR_MAGENTA, -1)
         curses.init_pair(2, curses.COLOR_RED, -1)
         curses.init_pair(3, curses.COLOR_CYAN, -1)
+        curses.init_pair(4, curses.COLOR_WHITE, curses.COLOR_RED)
     curses.noecho()
     curses.cbreak()
     stdscr.keypad(True)
@@ -1887,10 +2371,10 @@ def main(s):  # pylint: disable=unused-argument
     stdscr.attrset(curses.color_pair(0))
     stdscr.clear()
     dcontacts()
-    sections()
     entry()
     logwindow()
     readpreferences()
+    sections()
     if preference["mycall"].upper() == "CALL":
         processcommand(" S")
     stats()
@@ -1906,6 +2390,7 @@ def main(s):  # pylint: disable=unused-argument
     )
     _ft8thread.start()
     poll_time = datetime.now()
+    send_status = datetime.now()
     while 1:
         stdscr.refresh()
         ch = stdscr.getch()
@@ -1929,8 +2414,12 @@ def main(s):  # pylint: disable=unused-argument
             break
         if datetime.now() > poll_time:
             statusline()
+            check_udp_queue()
             poll_radio()
             poll_time = datetime.now() + timedelta(seconds=1)
+        if datetime.now() > send_status:
+            send_status_udp()
+            send_status = datetime.now() + timedelta(seconds=15)
 
 
 wrapper(main)

@@ -11,21 +11,6 @@ class DataBase:
         self.database = database
         self.create_db()
 
-    @staticmethod
-    def row_factory(cursor, row):
-        """
-        cursor.description:
-        (name, type_code, display_size,
-        internal_size, precision, scale, null_ok)
-        row: (value, value, ...)
-        """
-        return {
-            col[0]: row[idx]
-            for idx, col in enumerate(
-                cursor.description,
-            )
-        }
-
     def create_db(self) -> None:
         """
         create database tables contacts if they do not exist.
@@ -36,6 +21,7 @@ class DataBase:
                 sql_table = (
                     "CREATE TABLE IF NOT EXISTS contacts "
                     "(id INTEGER PRIMARY KEY, "
+                    "unique_id text NOT NULL, "
                     "callsign text NOT NULL, "
                     "class text NOT NULL, "
                     "section text NOT NULL, "
@@ -46,66 +32,49 @@ class DataBase:
                     "power INTEGER NOT NULL, "
                     "grid text NOT NULL, "
                     "opname text NOT NULL, "
-                    "unique_id text NOT NULL, "
-                    "dirty INTEGER DEFAULT 1);"
+                    "station text NOT NULL);"
                 )
                 cursor.execute(sql_table)
                 conn.commit()
         except sqlite3.Error as exception:
-            logging.critical("%s", exception)
-
-    def clear_dirty_flag(self, unique_id) -> None:
-        """Clears the dirty flag."""
-        if unique_id:
-            try:
-                with sqlite3.connect(self.database) as conn:
-                    sql = f"update contacts set dirty=0 where unique_id='{unique_id}';"
-                    cursor = conn.cursor()
-                    cursor.execute(sql)
-                    conn.commit()
-            except sqlite3.Error as exception:
-                logging.critical("%s", exception)
+            logging.critical("create_db: Unable to create database: %s", exception)
 
     def log_contact(self, logme: tuple) -> None:
         """
         Inserts a contact into the db.
-        pass in (hiscall, hisclass, hissection, band, mode, int(power), grid, name)
+        pass in (unique_id, hiscall, hisclass, hissection, band, mode, int(power), grid, name)
         """
         try:
             with sqlite3.connect(self.database) as conn:
-                sql = (
-                    "INSERT INTO contacts"
-                    "(callsign, class, section, date_time, frequency, "
-                    "band, mode, power, grid, opname, unique_id, dirty) "
-                    "VALUES(?,?,?,datetime('now'),?,?,?,?,?,?,?,1)"
-                )
+                sql = f"select count(*) from contacts where unique_id ='{logme[0]}';"
                 cur = conn.cursor()
-                cur.execute(sql, logme)
+                cur.execute(sql)
+                if cur.fetchone()[0] == 0:
+                    sql = (
+                        "INSERT INTO contacts"
+                        "(unique_id, callsign, class, section, date_time, frequency, "
+                        "band, mode, power, grid, opname, station) "
+                        "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)"
+                    )
+                    cur.execute(sql, logme)
+                else:
+                    sql = (
+                        f"update contacts set callsign = '{logme[1]}', class = '{logme[2]}', "
+                        f"section = '{logme[3]}', date_time = '{logme[4]}', band = '{logme[6]}', "
+                        f"mode = '{logme[7]}', power = '{logme[8]}', station = '{logme[11]}', "
+                        f"frequency = '{logme[5]}' where unique_id='{logme[0]}';"
+                    )
+                    cur.execute(sql)
                 conn.commit()
         except sqlite3.Error as exception:
             logging.debug("DataBase log_contact: %s", exception)
 
-    def get_unique_id(self, contact) -> str:
-        """get unique id"""
-        unique_id = {}
-        if contact:
+    def delete_contact(self, unique_id) -> None:
+        """Deletes a contact from the db by passing in UUID."""
+        if unique_id:
             try:
                 with sqlite3.connect(self.database) as conn:
-                    sql = f"select unique_id from contacts where id={int(contact)}"
-                    conn.row_factory = self.row_factory
-                    cursor = conn.cursor()
-                    cursor.execute(sql)
-                    unique_id = cursor.fetchone()
-            except sqlite3.Error as exception:
-                logging.debug("%s", exception)
-        return unique_id
-
-    def delete_contact(self, contact) -> None:
-        """Deletes a contact from the db."""
-        if contact:
-            try:
-                with sqlite3.connect(self.database) as conn:
-                    sql = f"delete from contacts where id={int(contact)}"
+                    sql = f"delete from contacts where unique_id='{unique_id}'"
                     cur = conn.cursor()
                     cur.execute(sql)
                     conn.commit()
@@ -117,15 +86,24 @@ class DataBase:
         try:
             with sqlite3.connect(self.database) as conn:
                 sql = (
-                    f"update contacts set callsign = '{qso[1]}', class = '{qso[2]}', "
-                    f"section = '{qso[3]}', date_time = '{qso[4]}', band = '{qso[5]}', "
-                    f"mode = '{qso[6]}', power = '{qso[7]}'  where id='{qso[0]}'"
+                    f"update contacts set callsign = '{qso[0]}', class = '{qso[1]}', "
+                    f"section = '{qso[2]}', date_time = '{qso[3]}', band = '{qso[4]}', "
+                    f"mode = '{qso[5]}', power = '{qso[6]}', station = '{qso[7]}', "
+                    f"frequency = '{qso[8]}' where unique_id='{qso[9]}';"
                 )
                 cur = conn.cursor()
                 cur.execute(sql)
                 conn.commit()
         except sqlite3.Error as exception:
-            logging.debug("DataBase change_contact: %s", exception)
+            logging.critical("DataBase change_contact: %s", exception)
+
+    def get_operators(self) -> list:
+        """Return a list of station calls used."""
+        with sqlite3.connect(self.database) as conn:
+            cursor = conn.cursor()
+            cursor.execute("select distinct station from contacts;")
+            ops = cursor.fetchall()
+        return ops
 
     def stats(self) -> tuple:
         """
@@ -244,7 +222,6 @@ class DataBase:
         for a given band using a particular mode.
         """
         with sqlite3.connect(self.database) as conn:
-            conn.row_factory = self.row_factory
             cursor = conn.cursor()
             cursor.execute(
                 "select count(*) as tally, MAX(power) as mpow from contacts "
@@ -255,7 +232,6 @@ class DataBase:
     def get_bands(self) -> tuple:
         """returns a list of bands"""
         with sqlite3.connect(self.database) as conn:
-            conn.row_factory = self.row_factory
             cursor = conn.cursor()
             cursor.execute("select DISTINCT band from contacts")
             return cursor.fetchall()
@@ -263,7 +239,6 @@ class DataBase:
     def fetch_all_contacts_asc(self) -> tuple:
         """returns a tuple of all contacts in the database."""
         with sqlite3.connect(self.database) as conn:
-            conn.row_factory = self.row_factory
             cursor = conn.cursor()
             cursor.execute("select * from contacts order by date_time ASC")
             return cursor.fetchall()
@@ -271,43 +246,13 @@ class DataBase:
     def fetch_all_contacts_desc(self) -> tuple:
         """returns a tuple of all contacts in the database."""
         with sqlite3.connect(self.database) as conn:
-            conn.row_factory = self.row_factory
             cursor = conn.cursor()
             cursor.execute("select * from contacts order by date_time desc")
             return cursor.fetchall()
 
-    def fetch_all_dirty_contacts(self) -> list:
-        """
-        Return a list of dict, containing all contacts still flagged as dirty.\n
-        Example:\n
-        {\n
-            'id': 2, 'callsign': 'N6QW', 'class': '1B', 'section': 'SB', \n
-            'date_time': '2022-09-22 18:44:02', 'frequency': 1830000, 'band': '160', \n
-            'mode': 'CW', 'power': 5, 'grid': 'DM04md', 'opname': 'PETER JULIANO', \n
-            'unique_id': '6fe98693f3ac4250847a6e5ac9da650e', 'dirty': 1\n
-        }\n
-        """
-        with sqlite3.connect(self.database) as conn:
-            conn.row_factory = self.row_factory
-            cursor = conn.cursor()
-            cursor.execute("select * from contacts where dirty=1 order by id")
-            return cursor.fetchall()
-
-    def count_all_dirty_contacts(self) -> dict:
-        """
-        Returns a dict containing the count of contacts still flagged as dirty.\n
-        Example: {'alldirty': 3}
-        """
-        with sqlite3.connect(self.database) as conn:
-            conn.row_factory = self.row_factory
-            cursor = conn.cursor()
-            cursor.execute("select count(*) as alldirty from contacts where dirty=1")
-            return cursor.fetchone()
-
     def fetch_last_contact(self) -> tuple:
         """returns a tuple of all contacts in the database."""
         with sqlite3.connect(self.database) as conn:
-            conn.row_factory = self.row_factory
             cursor = conn.cursor()
             cursor.execute("select * from contacts order by id desc")
             return cursor.fetchone()
@@ -315,7 +260,6 @@ class DataBase:
     def dup_check(self, acall: str) -> tuple:
         """returns a list of possible dups"""
         with sqlite3.connect(self.database) as conn:
-            conn.row_factory = self.row_factory
             cursor = conn.cursor()
             cursor.execute(
                 "select callsign, class, section, band, mode "
@@ -326,27 +270,20 @@ class DataBase:
     def sections(self) -> tuple:
         """returns a list of sections worked."""
         with sqlite3.connect(self.database) as conn:
-            conn.row_factory = self.row_factory
             cursor = conn.cursor()
-            cursor.execute("select distinct section from contacts;")
+            cursor.execute("select distinct section from contacts")
             return cursor.fetchall()
 
     def contact_by_id(self, record) -> tuple:
         """returns a contact matching an id"""
         with sqlite3.connect(self.database) as conn:
-            conn.row_factory = self.row_factory
             cursor = conn.cursor()
             cursor.execute("select * from contacts where id=" + record)
-            return cursor.fetchone()
+            return cursor.fetchall()
 
     def get_grids(self) -> tuple:
         """returns a tuple of unique grids in the log."""
         with sqlite3.connect(self.database) as conn:
-            conn.row_factory = self.row_factory
             cursor = conn.cursor()
             cursor.execute("select DISTINCT grid from contacts")
             return cursor.fetchall()
-
-
-if __name__ == "__main__":
-    print("Nope not a program")

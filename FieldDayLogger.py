@@ -1868,10 +1868,10 @@ def displayHelp():
     rectangle(stdscr, 11, 0, 21, 34)
     ######################################
     help_message = [
-        ".H this message",
-        ".S Settings    .G Group Settings",
-        ".Q Quit        .C Group Chat",
-        ".E# Edit a QSO",
+        ".H this message|",
+        ".S Settings    |.G Group Settings",
+        ".Q Quit        |.C Group Chat",
+        ".E# Edit a QSO |",
         ".D# Delete a QSO",
         ".B# Change bands",
         ".M[CW,PH,DI] Change mode",
@@ -1880,7 +1880,7 @@ def displayHelp():
     ]
     stdscr.move(12, 1)
     for count, x in enumerate(help_message):
-        infowindow.addstr(count, 1, x)
+        infowindow.addstr(count, 0, x)
     stdscr.refresh()
     infowindow.refresh(0, 0, 12, 1, 20, 33)
     stdscr.move(wy, wx)

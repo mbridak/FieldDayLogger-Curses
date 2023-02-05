@@ -1578,11 +1578,15 @@ def displaySCP(matches):
     oy, ox = stdscr.getyx()
     infowindow.clear()
     rectangle(stdscr, 11, 0, 21, 34)
-    for x in matches:
-        wy, wx = infowindow.getyx()
-        if (33 - wx) < len(str(x)):
-            infowindow.move(wy + 1, 0)
-        infowindow.addstr(f"{x} ")
+    try:
+        for x in matches:
+            wy, wx = infowindow.getyx()
+            if (33 - wx) < len(str(x)):
+                infowindow.move(wy + 1, 0)
+            infowindow.addstr(f"{x} ")
+    except:
+        ...
+
     stdscr.refresh()
     infowindow.refresh(0, 0, 12, 1, 20, 33)
     stdscr.move(oy, ox)

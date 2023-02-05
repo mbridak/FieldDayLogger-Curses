@@ -32,6 +32,7 @@ fdcurses
 
 # Recent changes
 
+- [23-2-5] Fixed crash when too many SCP matches happen.
 - [23-2-5] Safer dict key access.
 - [23-2-4] Repackaged for PyPi. Updated RAC sections.
 Added an aggregation server for group/club logging.

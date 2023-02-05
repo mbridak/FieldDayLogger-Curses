@@ -151,7 +151,7 @@ class EditTextField:
         """Sets the boolean state"""
         self.my_state = bool(state)
         if self.my_state:
-            self.set_text("X")
+            self.set_text("✓")
         else:
             self.set_text(" ")
 

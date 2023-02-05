@@ -21,36 +21,49 @@ Contact_______: michael.bridak@gmail.com
 # pylint: disable=too-many-lines
 # pylint: disable=global-statement
 
-from math import radians, sin, cos, atan2, sqrt, asin, pi
-from itertools import chain
-import textwrap
 import curses
-import time
-import sys
+import logging
 import os
+import pkgutil
+import queue
 import re
 import socket
+import sys
+import textwrap
+import threading
+import time
+import uuid
+from curses import wrapper
+from curses.textpad import rectangle
+from datetime import datetime, timedelta
+from itertools import chain
+from json import JSONDecodeError, dumps, loads
+from math import asin, atan2, cos, pi, radians, sin, sqrt
 from pathlib import Path
 from shutil import copyfile
-from curses.textpad import rectangle
-from curses import wrapper
-from datetime import datetime, timedelta
-import threading
-import logging
-import uuid
-import queue
-from json import loads, dumps, JSONDecodeError
+
 import requests
 
-from lib.cat_interface import CAT
-from lib.lookup import HamDBlookup, HamQTH, QRZlookup
-from lib.database import DataBase
-from lib.cwinterface import CW
-from lib.edittextfield import EditTextField
-from lib.wsjtx_listener import WsjtxListener
-from lib.settings import SettingsScreen
-from lib.groupsettings import GroupSettingsScreen
-from lib.version import __version__
+try:
+    from fdcurses.lib.cat_interface import CAT
+    from fdcurses.lib.cwinterface import CW
+    from fdcurses.lib.database import DataBase
+    from fdcurses.lib.edittextfield import EditTextField
+    from fdcurses.lib.groupsettings import GroupSettingsScreen
+    from fdcurses.lib.lookup import HamDBlookup, HamQTH, QRZlookup
+    from fdcurses.lib.settings import SettingsScreen
+    from fdcurses.lib.version import __version__
+    from fdcurses.lib.wsjtx_listener import WsjtxListener
+except ModuleNotFoundError:
+    from lib.cat_interface import CAT
+    from lib.cwinterface import CW
+    from lib.database import DataBase
+    from lib.edittextfield import EditTextField
+    from lib.groupsettings import GroupSettingsScreen
+    from lib.lookup import HamDBlookup, HamQTH, QRZlookup
+    from lib.settings import SettingsScreen
+    from lib.version import __version__
+    from lib.wsjtx_listener import WsjtxListener
 
 
 class Chatlog:
@@ -236,18 +249,6 @@ multicast_port = 2239
 interface_ip = "0.0.0.0"
 _udpwatch = None
 chat = Chatlog()
-
-
-def relpath(filename):
-    """
-    Checks to see if program has been packaged with pyinstaller.
-    If so base dir is in a temp folder.
-    """
-    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-        base_path = getattr(sys, "_MEIPASS")
-    else:
-        base_path = os.path.abspath(".")
-    return os.path.join(base_path, filename)
 
 
 def has_internet():
@@ -801,13 +802,14 @@ def read_cw_macros():
     and this has been packaged with pyinstaller it will copy the default file from the
     temp directory this is running from... In theory.
     """
-    if (
-        getattr(sys, "frozen", False)
-        and hasattr(sys, "_MEIPASS")
-        and not Path("./cwmacros_fd.txt").exists()
-    ):
+    if not Path("./cwmacros_fd.txt").exists():
         logging.info("copying default macro file.")
-        copyfile(relpath("cwmacros_fd.txt"), "./cwmacros_fd.txt")
+        try:
+            path = os.path.dirname(pkgutil.get_loader("fdcurses").get_filename())
+            logging.info("the path : %s", path)
+            copyfile(path + "/data/cwmacros_fd.txt", "./cwmacros_fd.txt")
+        except AttributeError:
+            copyfile("fdcurses/data/cwmacros_fd.txt", "./cwmacros_fd.txt")
     with open("./cwmacros_fd.txt", "r", encoding="utf-8") as file_descriptor:
         for line in file_descriptor:
             try:
@@ -1059,20 +1061,32 @@ def read_sections():
     """
     global secName, secState, secPartial
     try:
+        # path = os.path.dirname(pkgutil.get_loader("wfdcurses").get_filename())
+        # logging.info("the path : %s", path)
+        secName = loads(pkgutil.get_data(__name__, "data/secname.json").decode("utf8"))
+    except ValueError:
         with open(
-            relpath("./data/secname.json"), "rt", encoding="utf-8"
+            "fdcurses/data/secname.json", "rt", encoding="utf-8"
         ) as file_descriptor:
             secName = loads(file_descriptor.read())
+    try:
+        secState = loads(
+            pkgutil.get_data(__name__, "data/secstate.json").decode("utf8")
+        )
+    except ValueError:
         with open(
-            relpath("./data/secstate.json"), "rt", encoding="utf-8"
+            "fdcurses/data/secstate.json", "rt", encoding="utf-8"
         ) as file_descriptor:
             secState = loads(file_descriptor.read())
+    try:
+        secPartial = loads(
+            pkgutil.get_data(__name__, "data/secpartial.json").decode("utf8")
+        )
+    except ValueError:
         with open(
-            relpath("./data/secpartial.json"), "rt", encoding="utf-8"
+            "fdcurses/data/secpartial.json", "rt", encoding="utf-8"
         ) as file_descriptor:
             secPartial = loads(file_descriptor.read())
-    except IOError as exception:
-        logging.critical("read error: %s", exception)
 
 
 def section_check(sec):
@@ -1094,10 +1108,13 @@ def section_check(sec):
 def readSCP():
     """read super check partial file"""
     global scp
-    f = open(relpath("./data/MASTER.SCP"), "r", encoding="utf-8")
-    scp = f.readlines()
-    f.close()
-    scp = list(map(lambda x: x.strip(), scp))
+    try:
+        data = pkgutil.get_data(__name__, "data/MASTER.SCP").decode("utf8")
+        lines = data.splitlines()
+    except ValueError:
+        with open("fdcurses/data/MASTER.SCP", "r", encoding="utf-8") as file_descriptor:
+            lines = file_descriptor.readlines()
+    scp = list(map(lambda x: x.strip(), lines))
 
 
 def super_check(acall):
@@ -1356,7 +1373,7 @@ def postcloudlog():
 
     payloadDict = {"key": preference["cloudlogapi"], "type": "adif", "string": adifq}
     jsonData = dumps(payloadDict)
-    _ = requests.post(preference["cloudlogurl"], jsonData)
+    _ = requests.post(preference["cloudlogurl"], jsonData, timeout=5.0)
 
 
 def cabrillo():
@@ -1675,18 +1692,19 @@ def sectionsCol5():
     stdscr.addstr(12, 77, "SD", workedSection("SD"))
     stdscr.addstr(13, 72, "CANADA ", curses.A_REVERSE)
     stdscr.addstr(14, 72, "AB", workedSection("AB"))
-    stdscr.addstr(14, 77, "NT", workedSection("NT"))
     stdscr.addstr(15, 72, "BC", workedSection("BC"))
-    stdscr.addstr(15, 76, "ONE", workedSection("ONE"))
-    stdscr.addstr(16, 72, "GTA", workedSection("GTA"))
-    stdscr.addstr(16, 76, "ONN", workedSection("ONN"))
-    stdscr.addstr(17, 72, "MAR", workedSection("MAR"))
-    stdscr.addstr(17, 76, "ONS", workedSection("ONS"))
-    stdscr.addstr(18, 72, "MB", workedSection("MB"))
-    stdscr.addstr(18, 77, "QC", workedSection("QC"))
+    stdscr.addstr(16, 72, "GH", workedSection("GH"))
+    stdscr.addstr(17, 72, "MB", workedSection("MB"))
+    stdscr.addstr(18, 72, "NB", workedSection("NB"))
     stdscr.addstr(19, 72, "NL", workedSection("NL"))
+    stdscr.addstr(20, 72, "NS", workedSection("NS"))
+    stdscr.addstr(14, 77, "PE", workedSection("PE"))
+    stdscr.addstr(15, 76, "ONE", workedSection("ONE"))
+    stdscr.addstr(16, 76, "ONN", workedSection("ONN"))
+    stdscr.addstr(17, 76, "ONS", workedSection("ONS"))
+    stdscr.addstr(18, 77, "QC", workedSection("QC"))
     stdscr.addstr(19, 77, "SK", workedSection("SK"))
-    stdscr.addstr(20, 72, "PE", workedSection("PE"))
+    stdscr.addstr(20, 76, "TER", workedSection("TER"))
 
 
 def sections():
@@ -2422,4 +2440,24 @@ def main(s):  # pylint: disable=unused-argument
             send_status = datetime.now() + timedelta(seconds=15)
 
 
-wrapper(main)
+def run():
+    """main entry point"""
+    PATH = os.path.dirname(pkgutil.get_loader("wfdcurses").get_filename())
+    os.system(
+        "xdg-icon-resource install --size 64 --context apps --mode user "
+        f"{PATH}/data/k6gte.wfdcurses-32.png k6gte-wfdcurses"
+    )
+    os.system(
+        "xdg-icon-resource install --size 64 --context apps --mode user "
+        f"{PATH}/data/k6gte.wfdcurses-64.png k6gte-wfdcurses"
+    )
+    os.system(
+        "xdg-icon-resource install --size 64 --context apps --mode user "
+        f"{PATH}/data/k6gte.wfdcurses-128.png k6gte-wfdcurses"
+    )
+    os.system(f"xdg-desktop-menu install {PATH}/data/k6gte-wfdcurses.desktop")
+    wrapper(main)
+
+
+if __name__ == "__main__":
+    wrapper(main)

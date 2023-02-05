@@ -4,7 +4,11 @@
 
 import curses
 import time
-from lib.edittextfield import EditTextField
+
+try:
+    from fdcurses.lib.edittextfield import EditTextField
+except ModuleNotFoundError:
+    from lib.edittextfield import EditTextField
 
 
 class GroupSettingsScreen:

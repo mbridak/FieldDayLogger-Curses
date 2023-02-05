@@ -257,7 +257,7 @@ def dict_str(the_object: dict, the_key: str) -> str:
     the_value = the_object.get(the_key)
     if the_value is None:
         the_value = ""
-    return str(the_key)
+    return str(the_value)
 
 
 def has_internet():

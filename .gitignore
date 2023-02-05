@@ -1,6 +1,7 @@
 
 FieldDay\.adi
-
+fdcurses.egg-info
+__pycache__
 Statistics\.txt
 .vscode/settings.json
 dist

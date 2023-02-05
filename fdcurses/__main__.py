@@ -21,48 +21,49 @@ Contact_______: michael.bridak@gmail.com
 # pylint: disable=too-many-lines
 # pylint: disable=global-statement
 
-from math import radians, sin, cos, atan2, sqrt, asin, pi
-from itertools import chain
-import textwrap
 import curses
-import time
-import sys
+import logging
 import os
+import pkgutil
+import queue
 import re
 import socket
-from pathlib import Path
-import pkgutil
-from shutil import copyfile
-from curses.textpad import rectangle
-from curses import wrapper
-from datetime import datetime, timedelta
+import sys
+import textwrap
 import threading
-import logging
+import time
 import uuid
-import queue
-from json import loads, dumps, JSONDecodeError
+from curses import wrapper
+from curses.textpad import rectangle
+from datetime import datetime, timedelta
+from itertools import chain
+from json import JSONDecodeError, dumps, loads
+from math import asin, atan2, cos, pi, radians, sin, sqrt
+from pathlib import Path
+from shutil import copyfile
+
 import requests
 
 try:
     from fdcurses.lib.cat_interface import CAT
-    from fdcurses.lib.lookup import HamDBlookup, HamQTH, QRZlookup
-    from fdcurses.lib.database import DataBase
     from fdcurses.lib.cwinterface import CW
+    from fdcurses.lib.database import DataBase
     from fdcurses.lib.edittextfield import EditTextField
-    from fdcurses.lib.wsjtx_listener import WsjtxListener
-    from fdcurses.lib.settings import SettingsScreen
     from fdcurses.lib.groupsettings import GroupSettingsScreen
+    from fdcurses.lib.lookup import HamDBlookup, HamQTH, QRZlookup
+    from fdcurses.lib.settings import SettingsScreen
     from fdcurses.lib.version import __version__
+    from fdcurses.lib.wsjtx_listener import WsjtxListener
 except ModuleNotFoundError:
     from lib.cat_interface import CAT
-    from lib.lookup import HamDBlookup, HamQTH, QRZlookup
-    from lib.database import DataBase
     from lib.cwinterface import CW
+    from lib.database import DataBase
     from lib.edittextfield import EditTextField
-    from lib.wsjtx_listener import WsjtxListener
-    from lib.settings import SettingsScreen
     from lib.groupsettings import GroupSettingsScreen
+    from lib.lookup import HamDBlookup, HamQTH, QRZlookup
+    from lib.settings import SettingsScreen
     from lib.version import __version__
+    from lib.wsjtx_listener import WsjtxListener
 
 
 class Chatlog:
@@ -1691,18 +1692,19 @@ def sectionsCol5():
     stdscr.addstr(12, 77, "SD", workedSection("SD"))
     stdscr.addstr(13, 72, "CANADA ", curses.A_REVERSE)
     stdscr.addstr(14, 72, "AB", workedSection("AB"))
-    stdscr.addstr(14, 77, "NT", workedSection("NT"))
     stdscr.addstr(15, 72, "BC", workedSection("BC"))
-    stdscr.addstr(15, 76, "ONE", workedSection("ONE"))
-    stdscr.addstr(16, 72, "GTA", workedSection("GTA"))
-    stdscr.addstr(16, 76, "ONN", workedSection("ONN"))
-    stdscr.addstr(17, 72, "MAR", workedSection("MAR"))
-    stdscr.addstr(17, 76, "ONS", workedSection("ONS"))
-    stdscr.addstr(18, 72, "MB", workedSection("MB"))
-    stdscr.addstr(18, 77, "QC", workedSection("QC"))
+    stdscr.addstr(16, 72, "GH", workedSection("GH"))
+    stdscr.addstr(17, 72, "MB", workedSection("MB"))
+    stdscr.addstr(18, 72, "NB", workedSection("NB"))
     stdscr.addstr(19, 72, "NL", workedSection("NL"))
+    stdscr.addstr(20, 72, "NS", workedSection("NS"))
+    stdscr.addstr(14, 77, "PE", workedSection("PE"))
+    stdscr.addstr(15, 76, "ONE", workedSection("ONE"))
+    stdscr.addstr(16, 76, "ONN", workedSection("ONN"))
+    stdscr.addstr(17, 76, "ONS", workedSection("ONS"))
+    stdscr.addstr(18, 77, "QC", workedSection("QC"))
     stdscr.addstr(19, 77, "SK", workedSection("SK"))
-    stdscr.addstr(20, 72, "PE", workedSection("PE"))
+    stdscr.addstr(20, 76, "TER", workedSection("TER"))
 
 
 def sections():
@@ -2438,4 +2440,24 @@ def main(s):  # pylint: disable=unused-argument
             send_status = datetime.now() + timedelta(seconds=15)
 
 
-wrapper(main)
+def run():
+    """main entry point"""
+    PATH = os.path.dirname(pkgutil.get_loader("wfdcurses").get_filename())
+    os.system(
+        "xdg-icon-resource install --size 64 --context apps --mode user "
+        f"{PATH}/data/k6gte.wfdcurses-32.png k6gte-wfdcurses"
+    )
+    os.system(
+        "xdg-icon-resource install --size 64 --context apps --mode user "
+        f"{PATH}/data/k6gte.wfdcurses-64.png k6gte-wfdcurses"
+    )
+    os.system(
+        "xdg-icon-resource install --size 64 --context apps --mode user "
+        f"{PATH}/data/k6gte.wfdcurses-128.png k6gte-wfdcurses"
+    )
+    os.system(f"xdg-desktop-menu install {PATH}/data/k6gte-wfdcurses.desktop")
+    wrapper(main)
+
+
+if __name__ == "__main__":
+    wrapper(main)

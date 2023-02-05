@@ -150,6 +150,7 @@ contactlookup = {
     "distance": "",
 }
 os.environ.setdefault("ESCDELAY", "25")
+print("\033[?3l")
 stdscr = curses.initscr()
 contacts = curses.newpad(1000, 80)
 seccheckwindow = curses.newpad(20, 33)
@@ -249,6 +250,14 @@ multicast_port = 2239
 interface_ip = "0.0.0.0"
 _udpwatch = None
 chat = Chatlog()
+
+
+def dict_str(the_object: dict, the_key: str) -> str:
+    """safely return string from dict"""
+    the_value = the_object.get(the_key)
+    if the_value is None:
+        the_value = ""
+    return str(the_key)
 
 
 def has_internet():
@@ -553,7 +562,7 @@ def query_group():
     """Sends request to server asking for group call/class/section."""
     update = {
         "cmd": "GROUPQUERY",
-        "station": preference["mycall"],
+        "station": preference.get("mycall"),
     }
     bytesToSend = bytes(dumps(update), encoding="ascii")
     try:
@@ -565,7 +574,7 @@ def query_group():
 def send_status_udp():
     """Send status update to server informing of our band and mode"""
     if connect_to_server:
-        if groupcall is None and preference["mycall"] != "":
+        if groupcall is None and preference.get("mycall") != "":
             query_group()
             return
 
@@ -573,7 +582,7 @@ def send_status_udp():
             "cmd": "PING",
             "mode": mode,
             "band": band,
-            "station": preference["mycall"],
+            "station": preference.get("mycall"),
         }
         bytesToSend = bytes(dumps(update), encoding="ascii")
         try:
@@ -599,14 +608,14 @@ def lookupmygrid():
     """lookup my own gridsquare"""
     global mygrid
     if look_up and has_internet():
-        mygrid, _, _, _ = look_up.lookup(preference["mycall"])
+        mygrid, _, _, _ = look_up.lookup(preference.get("mycall"))
         logging.info("%s", mygrid)
 
 
 def lazy_lookup(acall: str):
     """El Lookup De Lazy"""
     if look_up and has_internet():
-        if acall == contactlookup["call"]:
+        if acall == contactlookup.get("call"):
             return
         contactlookup["call"] = acall
         (
@@ -615,18 +624,18 @@ def lazy_lookup(acall: str):
             contactlookup["nickname"],
             contactlookup["error"],
         ) = look_up.lookup(acall)
-        if contactlookup["name"] == "NOT_FOUND NOT_FOUND":
+        if contactlookup.get("name") == "NOT_FOUND NOT_FOUND":
             contactlookup["name"] = "NOT_FOUND"
-        if contactlookup["grid"] == "NOT_FOUND":
+        if contactlookup.get("grid") == "NOT_FOUND":
             contactlookup["grid"] = ""
-        if contactlookup["grid"] and mygrid:
-            contactlookup["distance"] = distance(mygrid, contactlookup["grid"])
-            contactlookup["bearing"] = bearing(mygrid, contactlookup["grid"])
+        if contactlookup.get("grid") and mygrid:
+            contactlookup["distance"] = distance(mygrid, contactlookup.get("grid"))
+            contactlookup["bearing"] = bearing(mygrid, contactlookup.get("grid"))
             displayinfo(f"{contactlookup['name'][:33]}", line=1)
             displayinfo(
-                f"{contactlookup['grid']} "
-                f"{round(contactlookup['distance'])}km "
-                f"{round(contactlookup['bearing'])}deg"
+                f"{contactlookup.get('grid')} "
+                f"{round(contactlookup.get('distance'))}km "
+                f"{round(contactlookup.get('bearing'))}deg"
             )
         logging.info("%s", contactlookup)
 
@@ -719,7 +728,7 @@ def cloudlogauth():
     """Authenticate cloudlog"""
     global cloudlogauthenticated
     cloudlogauthenticated = False
-    if preference["cloudlog"]:
+    if preference.get("cloudlog"):
         try:
             test = f"{preference['cloudlogurl'][:-3]}auth/{preference['cloudlogapi']}"
             r = requests.get(test, params={}, timeout=2.0)
@@ -822,9 +831,9 @@ def read_cw_macros():
 def process_macro(macro):
     """process string substitutions"""
     macro = macro.upper()
-    macro = macro.replace("{MYCALL}", preference["mycall"])
-    macro = macro.replace("{MYCLASS}", preference["myclass"])
-    macro = macro.replace("{MYSECT}", preference["mysection"])
+    macro = macro.replace("{MYCALL}", preference.get("mycall"))
+    macro = macro.replace("{MYCLASS}", preference.get("myclass"))
+    macro = macro.replace("{MYSECT}", preference.get("mysection"))
     macro = macro.replace("{HISCALL}", hiscall)
     return macro
 
@@ -881,9 +890,9 @@ def readpreferences():
                 "./fd_preferences.json", "rt", encoding="utf-8"
             ) as file_descriptor:
                 preference = loads(file_descriptor.read())
-                preference["mycall"] = preference["mycall"].upper()
-                preference["myclass"] = preference["myclass"].upper()
-                preference["mysection"] = preference["mysection"].upper()
+                preference["mycall"] = dict_str(preference, "mycall").upper()
+                preference["myclass"] = dict_str(preference, "myclass").upper()
+                preference["mysection"] = dict_str(preference, "mysection").upper()
         else:
             writepreferences()
 
@@ -895,32 +904,40 @@ def readpreferences():
     look_up = None
     try:
 
-        if preference["useflrig"]:
-            cat_control = CAT("flrig", preference["CAT_ip"], preference["CAT_port"])
-        if preference["userigctld"]:
-            cat_control = CAT("rigctld", preference["CAT_ip"], preference["CAT_port"])
+        if preference.get("useflrig"):
+            cat_control = CAT(
+                "flrig", preference.get("CAT_ip"), preference.get("CAT_port")
+            )
+        if preference.get("userigctld"):
+            cat_control = CAT(
+                "rigctld", preference.get("CAT_ip"), preference.get("CAT_port")
+            )
 
-        if preference["cwtype"]:
-            cw = CW(preference["cwtype"], preference["CW_IP"], preference["CW_port"])
+        if preference.get("cwtype"):
+            cw = CW(
+                preference.get("cwtype"),
+                preference.get("CW_IP"),
+                preference.get("CW_port"),
+            )
             cw.speed = 20
-            if preference["cwtype"] == 1:
+            if preference.get("cwtype") == 1:
                 cw.sendcw("\x1b220")
 
-        if preference["useqrz"]:
+        if preference.get("useqrz"):
             look_up = QRZlookup(
-                preference["lookupusername"], preference["lookuppassword"]
+                preference.get("lookupusername"), preference.get("lookuppassword")
             )
 
-        if preference["usehamdb"]:
+        if preference.get("usehamdb"):
             look_up = HamDBlookup()
 
-        if preference["usehamqth"]:
+        if preference.get("usehamqth"):
             look_up = HamQTH(
-                preference["lookupusername"],
-                preference["lookuppassword"],
+                preference.get("lookupusername"),
+                preference.get("lookuppassword"),
             )
 
-        if look_up and preference["mycall"] != "CALL":
+        if look_up and preference.get("mycall") != "CALL":
             _thethread = threading.Thread(
                 target=lookupmygrid,
                 daemon=True,
@@ -1023,7 +1040,7 @@ def delete_contact(contact):
         command = {}
         command["cmd"] = "DELETE"
         command["unique_id"] = unique_id.get("unique_id")
-        command["station"] = preference.get("mycall").upper()
+        command["station"] = dict_str(preference, "mycall").upper()
         command["expire"] = stale.isoformat()
         server_commands.append(command)
         bytesToSend = bytes(dumps(command), encoding="ascii")
@@ -1180,7 +1197,7 @@ def score():
     cdub, ph, di = db.contacts_under_101watts()
     the_score = (int(cdub) * 2) + int(ph) + (int(di) * 2)
     multiplier = 2
-    if qrp and bool(preference["altpower"]):
+    if qrp and bool(preference.get("altpower")):
         multiplier = 5
     return the_score * multiplier
 
@@ -1328,7 +1345,7 @@ def adif():
 
 def postcloudlog():
     """posts a contacts to cloudlog."""
-    if not preference["cloudlogapi"] or not cloudlogauthenticated:
+    if not preference.get("cloudlogapi") or not cloudlogauthenticated:
         return
     result = db.fetch_last_contact()
     opcall = result.get("callsign")
@@ -1371,9 +1388,13 @@ def postcloudlog():
         adifq += f"<NAME:{len(name)}>{name}"
     adifq += "<COMMENT:14>ARRL-FIELD-DAY" "<EOR>"
 
-    payloadDict = {"key": preference["cloudlogapi"], "type": "adif", "string": adifq}
+    payloadDict = {
+        "key": preference.get("cloudlogapi"),
+        "type": "adif",
+        "string": adifq,
+    }
     jsonData = dumps(payloadDict)
-    _ = requests.post(preference["cloudlogurl"], jsonData, timeout=5.0)
+    _ = requests.post(preference.get("cloudlogurl"), jsonData, timeout=1.0)
 
 
 def cabrillo():
@@ -1855,7 +1876,7 @@ def setmode(m):
 def setcallsign(c):
     """Sets your callsign for logging and writes preference."""
     preference["mycall"] = str(c)
-    if preference["mycall"] != "":
+    if preference.get("mycall") != "":
         _thethread = threading.Thread(
             target=lookupmygrid,
             daemon=True,
@@ -2075,9 +2096,9 @@ def proc_key(key):
                 oldfreq,
                 band,
                 mode,
-                int(preference["power"]),
-                contactlookup["grid"],
-                contactlookup["name"],
+                int(preference.get("power")),
+                contactlookup.get("grid"),
+                contactlookup.get("name"),
                 unique_id,
             )
             clearDisplayInfo()
@@ -2358,7 +2379,7 @@ def get_ft8_qso():
                 ft8qso[2],
                 ft8qso[5],
                 "DI",
-                preference["power"],
+                preference.get("power"),
                 ft8qso[8],
                 ft8qso[9],
             )
@@ -2393,7 +2414,7 @@ def main(s):  # pylint: disable=unused-argument
     logwindow()
     readpreferences()
     sections()
-    if preference["mycall"].upper() == "CALL":
+    if preference.get("mycall").upper() == "CALL":
         processcommand(" S")
     stats()
     displayHelp()

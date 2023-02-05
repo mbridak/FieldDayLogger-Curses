@@ -2442,20 +2442,20 @@ def main(s):  # pylint: disable=unused-argument
 
 def run():
     """main entry point"""
-    PATH = os.path.dirname(pkgutil.get_loader("wfdcurses").get_filename())
+    PATH = os.path.dirname(pkgutil.get_loader("fdcurses").get_filename())
     os.system(
-        "xdg-icon-resource install --size 64 --context apps --mode user "
-        f"{PATH}/data/k6gte.wfdcurses-32.png k6gte-wfdcurses"
+        "xdg-icon-resource install --size 32 --context apps --mode user "
+        f"{PATH}/data/k6gte.fdcurses-32.png k6gte-fdcurses"
     )
     os.system(
         "xdg-icon-resource install --size 64 --context apps --mode user "
-        f"{PATH}/data/k6gte.wfdcurses-64.png k6gte-wfdcurses"
+        f"{PATH}/data/k6gte.fdcurses-64.png k6gte-fdcurses"
     )
     os.system(
-        "xdg-icon-resource install --size 64 --context apps --mode user "
-        f"{PATH}/data/k6gte.wfdcurses-128.png k6gte-wfdcurses"
+        "xdg-icon-resource install --size 128 --context apps --mode user "
+        f"{PATH}/data/k6gte.fdcurses-128.png k6gte-fdcurses"
     )
-    os.system(f"xdg-desktop-menu install {PATH}/data/k6gte-wfdcurses.desktop")
+    os.system(f"xdg-desktop-menu install {PATH}/data/k6gte-fdcurses.desktop")
     wrapper(main)
 
 

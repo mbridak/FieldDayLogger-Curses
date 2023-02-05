@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fdcurses" 
+version = "23.1.14"
+description = "ARRL Field Day logger"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+  { name="Michael Bridak", email="michael.bridak@gmail.com" },
+]
+dependencies = [
+    "requests",
+    "xmltodict",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Environment :: Console :: Curses",
+    "Operating System :: POSIX :: Linux",
+    "Intended Audience :: End Users/Desktop",
+    "Natural Language :: English",
+    "Topic :: Communications :: Ham Radio",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/mbridak/FieldDayLogger-Curses"
+"Bug Tracker" = "https://github.com/mbridak/FieldDayLogger-Curses/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+"fdcurses.data" = ["*.json", "*.txt", "*.SCP","*.desktop", "*.svg", "*.png",]
+
+[project.scripts]
+fdcurses = "fdcurses.__main__:run"

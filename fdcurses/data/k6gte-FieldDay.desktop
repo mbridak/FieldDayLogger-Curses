@@ -1,10 +1,13 @@
 [Desktop Entry]
-Name=FieldDayLogger
-StartupWMClass=FieldDayLogger
+Name=FDCurses
+StartupWMClass=fdcurses
 GenericName=K6GTE Field Day Logger
-Comment=Amateur Radio Communications
-Exec=FieldDayLogger
-Icon=k6gte-FieldDay
+Comment=ARRL Field Day Logger
+Keywords=console;commandline;amateur radio;ham;logger;
+Exec=fdcurses
+Icon=k6gte-fdcurses
 Terminal=true
 Type=Application
 Categories=HamRadio;
+StartupNotify=true
+X-GNOME-SingleWindow=true

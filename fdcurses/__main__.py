@@ -31,6 +31,7 @@ import os
 import re
 import socket
 from pathlib import Path
+import pkgutil
 from shutil import copyfile
 from curses.textpad import rectangle
 from curses import wrapper
@@ -42,15 +43,26 @@ import queue
 from json import loads, dumps, JSONDecodeError
 import requests
 
-from lib.cat_interface import CAT
-from lib.lookup import HamDBlookup, HamQTH, QRZlookup
-from lib.database import DataBase
-from lib.cwinterface import CW
-from lib.edittextfield import EditTextField
-from lib.wsjtx_listener import WsjtxListener
-from lib.settings import SettingsScreen
-from lib.groupsettings import GroupSettingsScreen
-from lib.version import __version__
+try:
+    from fdcurses.lib.cat_interface import CAT
+    from fdcurses.lib.lookup import HamDBlookup, HamQTH, QRZlookup
+    from fdcurses.lib.database import DataBase
+    from fdcurses.lib.cwinterface import CW
+    from fdcurses.lib.edittextfield import EditTextField
+    from fdcurses.lib.wsjtx_listener import WsjtxListener
+    from fdcurses.lib.settings import SettingsScreen
+    from fdcurses.lib.groupsettings import GroupSettingsScreen
+    from fdcurses.lib.version import __version__
+except ModuleNotFoundError:
+    from lib.cat_interface import CAT
+    from lib.lookup import HamDBlookup, HamQTH, QRZlookup
+    from lib.database import DataBase
+    from lib.cwinterface import CW
+    from lib.edittextfield import EditTextField
+    from lib.wsjtx_listener import WsjtxListener
+    from lib.settings import SettingsScreen
+    from lib.groupsettings import GroupSettingsScreen
+    from lib.version import __version__
 
 
 class Chatlog:
@@ -236,18 +248,6 @@ multicast_port = 2239
 interface_ip = "0.0.0.0"
 _udpwatch = None
 chat = Chatlog()
-
-
-def relpath(filename):
-    """
-    Checks to see if program has been packaged with pyinstaller.
-    If so base dir is in a temp folder.
-    """
-    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-        base_path = getattr(sys, "_MEIPASS")
-    else:
-        base_path = os.path.abspath(".")
-    return os.path.join(base_path, filename)
 
 
 def has_internet():
@@ -801,13 +801,14 @@ def read_cw_macros():
     and this has been packaged with pyinstaller it will copy the default file from the
     temp directory this is running from... In theory.
     """
-    if (
-        getattr(sys, "frozen", False)
-        and hasattr(sys, "_MEIPASS")
-        and not Path("./cwmacros_fd.txt").exists()
-    ):
+    if not Path("./cwmacros_fd.txt").exists():
         logging.info("copying default macro file.")
-        copyfile(relpath("cwmacros_fd.txt"), "./cwmacros_fd.txt")
+        try:
+            path = os.path.dirname(pkgutil.get_loader("fdcurses").get_filename())
+            logging.info("the path : %s", path)
+            copyfile(path + "/data/cwmacros_fd.txt", "./cwmacros_fd.txt")
+        except AttributeError:
+            copyfile("fdcurses/data/cwmacros_fd.txt", "./cwmacros_fd.txt")
     with open("./cwmacros_fd.txt", "r", encoding="utf-8") as file_descriptor:
         for line in file_descriptor:
             try:
@@ -1059,20 +1060,32 @@ def read_sections():
     """
     global secName, secState, secPartial
     try:
+        # path = os.path.dirname(pkgutil.get_loader("wfdcurses").get_filename())
+        # logging.info("the path : %s", path)
+        secName = loads(pkgutil.get_data(__name__, "data/secname.json").decode("utf8"))
+    except ValueError:
         with open(
-            relpath("./data/secname.json"), "rt", encoding="utf-8"
+            "fdcurses/data/secname.json", "rt", encoding="utf-8"
         ) as file_descriptor:
             secName = loads(file_descriptor.read())
+    try:
+        secState = loads(
+            pkgutil.get_data(__name__, "data/secstate.json").decode("utf8")
+        )
+    except ValueError:
         with open(
-            relpath("./data/secstate.json"), "rt", encoding="utf-8"
+            "fdcurses/data/secstate.json", "rt", encoding="utf-8"
         ) as file_descriptor:
             secState = loads(file_descriptor.read())
+    try:
+        secPartial = loads(
+            pkgutil.get_data(__name__, "data/secpartial.json").decode("utf8")
+        )
+    except ValueError:
         with open(
-            relpath("./data/secpartial.json"), "rt", encoding="utf-8"
+            "fdcurses/data/secpartial.json", "rt", encoding="utf-8"
         ) as file_descriptor:
             secPartial = loads(file_descriptor.read())
-    except IOError as exception:
-        logging.critical("read error: %s", exception)
 
 
 def section_check(sec):
@@ -1094,10 +1107,13 @@ def section_check(sec):
 def readSCP():
     """read super check partial file"""
     global scp
-    f = open(relpath("./data/MASTER.SCP"), "r", encoding="utf-8")
-    scp = f.readlines()
-    f.close()
-    scp = list(map(lambda x: x.strip(), scp))
+    try:
+        data = pkgutil.get_data(__name__, "data/MASTER.SCP").decode("utf8")
+        lines = data.splitlines()
+    except ValueError:
+        with open("fdcurses/data/MASTER.SCP", "r", encoding="utf-8") as file_descriptor:
+            lines = file_descriptor.readlines()
+    scp = list(map(lambda x: x.strip(), lines))
 
 
 def super_check(acall):
@@ -1356,7 +1372,7 @@ def postcloudlog():
 
     payloadDict = {"key": preference["cloudlogapi"], "type": "adif", "string": adifq}
     jsonData = dumps(payloadDict)
-    _ = requests.post(preference["cloudlogurl"], jsonData)
+    _ = requests.post(preference["cloudlogurl"], jsonData, timeout=5.0)
 
 
 def cabrillo():

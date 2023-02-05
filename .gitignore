@@ -11,3 +11,4 @@ debug
 *.db
 *.adi
 build/*
+publish.sh

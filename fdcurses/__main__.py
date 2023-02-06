@@ -1612,9 +1612,12 @@ def workedSection(section):
 def sectionsCol1():
     """Display sections in column 1"""
     rectangle(stdscr, 8, 35, 21, 43)
-    stdscr.addstr(8, 36, "   DX  ", curses.A_REVERSE)
-    stdscr.addstr(9, 36, "   DX  ", workedSection("DX"))
-    stdscr.addstr(10, 36, "   1   ", curses.A_REVERSE)
+    stdscr.addstr(8, 38, "DX")
+    stdscr.addstr(9, 36, "  DX   ", workedSection("DX"))
+    stdscr.addch(10, 35, curses.ACS_LTEE)
+    stdscr.hline(10, 36, curses.ACS_HLINE, 7)
+    stdscr.addch(10, 43, curses.ACS_RTEE)
+    stdscr.addstr(10, 39, "1")
     stdscr.addstr(11, 36, "CT", workedSection("CT"))
     stdscr.addstr(11, 41, "RI", workedSection("RI"))
     stdscr.addstr(12, 36, "EMA", workedSection("EMA"))
@@ -1622,7 +1625,10 @@ def sectionsCol1():
     stdscr.addstr(13, 36, "ME", workedSection("ME"))
     stdscr.addstr(13, 40, "WMA", workedSection("WMA"))
     stdscr.addstr(14, 36, "NH", workedSection("NH"))
-    stdscr.addstr(15, 36, "   2   ", curses.A_REVERSE)
+    stdscr.addch(15, 35, curses.ACS_LTEE)
+    stdscr.hline(15, 36, curses.ACS_HLINE, 7)
+    stdscr.addch(15, 43, curses.ACS_RTEE)
+    stdscr.addstr(15, 39, "2")
     stdscr.addstr(16, 36, "ENY", workedSection("ENY"))
     stdscr.addstr(16, 40, "NNY", workedSection("NNY"))
     stdscr.addstr(17, 36, "NLI", workedSection("NLI"))
@@ -1634,12 +1640,15 @@ def sectionsCol1():
 def sectionsCol2():
     """Display sections in column 2"""
     rectangle(stdscr, 8, 44, 21, 52)
-    stdscr.addstr(8, 45, "   3   ", curses.A_REVERSE)
+    stdscr.addstr(8, 48, "3")
     stdscr.addstr(9, 45, "DE", workedSection("DE"))
     stdscr.addstr(9, 49, "MDC", workedSection("MDC"))
     stdscr.addstr(10, 45, "EPA", workedSection("EPA"))
     stdscr.addstr(10, 49, "WPA", workedSection("WPA"))
-    stdscr.addstr(11, 45, "   4   ", curses.A_REVERSE)
+    stdscr.addch(11, 44, curses.ACS_LTEE)
+    stdscr.hline(11, 45, curses.ACS_HLINE, 7)
+    stdscr.addch(11, 52, curses.ACS_RTEE)
+    stdscr.addstr(11, 48, "4")
     stdscr.addstr(12, 45, "AL", workedSection("AL"))
     stdscr.addstr(12, 50, "SC", workedSection("SC"))
     stdscr.addstr(13, 45, "GA", workedSection("GA"))
@@ -1657,7 +1666,7 @@ def sectionsCol2():
 def sectionsCol3():
     """Display sections in column 3"""
     rectangle(stdscr, 8, 53, 21, 61)
-    stdscr.addstr(8, 54, "   5   ", curses.A_REVERSE)
+    stdscr.addstr(8, 57, "5")
     stdscr.addstr(9, 54, "AR", workedSection("AR"))
     stdscr.addstr(9, 58, "NTX", workedSection("NTX"))
     stdscr.addstr(10, 54, "LA", workedSection("LA"))
@@ -1666,7 +1675,10 @@ def sectionsCol3():
     stdscr.addstr(11, 58, "STX", workedSection("STX"))
     stdscr.addstr(12, 54, "NM", workedSection("NM"))
     stdscr.addstr(12, 58, "WTX", workedSection("WTX"))
-    stdscr.addstr(13, 54, "   6   ", curses.A_REVERSE)
+    stdscr.addch(13, 53, curses.ACS_LTEE)
+    stdscr.hline(13, 54, curses.ACS_HLINE, 7)
+    stdscr.addch(13, 61, curses.ACS_RTEE)
+    stdscr.addstr(13, 57, "6")
     stdscr.addstr(14, 54, "EB", workedSection("EB"))
     stdscr.addstr(14, 58, "SCV", workedSection("SCV"))
     stdscr.addstr(15, 54, "LAX", workedSection("LAX"))
@@ -1682,7 +1694,7 @@ def sectionsCol3():
 def sectionsCol4():
     """Display sections in column 4"""
     rectangle(stdscr, 8, 62, 21, 70)
-    stdscr.addstr(8, 63, "   7   ", curses.A_REVERSE)
+    stdscr.addstr(8, 66, "7")
     stdscr.addstr(9, 63, "AK", workedSection("AK"))
     stdscr.addstr(9, 68, "NV", workedSection("NV"))
     stdscr.addstr(10, 63, "AZ", workedSection("AZ"))
@@ -1693,11 +1705,17 @@ def sectionsCol4():
     stdscr.addstr(12, 67, "WWA", workedSection("WWA"))
     stdscr.addstr(13, 63, "MT", workedSection("MT"))
     stdscr.addstr(13, 68, "WY", workedSection("WY"))
-    stdscr.addstr(14, 63, "   8   ", curses.A_REVERSE)
+    stdscr.addch(14, 62, curses.ACS_LTEE)
+    stdscr.hline(14, 63, curses.ACS_HLINE, 7)
+    stdscr.addch(14, 70, curses.ACS_RTEE)
+    stdscr.addstr(14, 66, "8")
     stdscr.addstr(15, 63, "MI", workedSection("MI"))
     stdscr.addstr(15, 68, "WV", workedSection("WV"))
     stdscr.addstr(16, 63, "OH", workedSection("OH"))
-    stdscr.addstr(17, 63, "   9   ", curses.A_REVERSE)
+    stdscr.addch(17, 62, curses.ACS_LTEE)
+    stdscr.hline(17, 63, curses.ACS_HLINE, 7)
+    stdscr.addch(17, 70, curses.ACS_RTEE)
+    stdscr.addstr(17, 66, "9")
     stdscr.addstr(18, 63, "IL", workedSection("IL"))
     stdscr.addstr(18, 68, "WI", workedSection("WI"))
     stdscr.addstr(19, 63, "IN", workedSection("IN"))
@@ -1706,7 +1724,7 @@ def sectionsCol4():
 def sectionsCol5():
     """Display sections in column 5"""
     rectangle(stdscr, 8, 71, 21, 79)
-    stdscr.addstr(8, 72, "   0   ", curses.A_REVERSE)
+    stdscr.addstr(8, 75, "0")
     stdscr.addstr(9, 72, "CO", workedSection("CO"))
     stdscr.addstr(9, 77, "MO", workedSection("MO"))
     stdscr.addstr(10, 72, "IA", workedSection("IA"))
@@ -1715,7 +1733,10 @@ def sectionsCol5():
     stdscr.addstr(11, 77, "NE", workedSection("NE"))
     stdscr.addstr(12, 72, "MN", workedSection("MN"))
     stdscr.addstr(12, 77, "SD", workedSection("SD"))
-    stdscr.addstr(13, 72, "CANADA ", curses.A_REVERSE)
+    stdscr.addch(13, 71, curses.ACS_LTEE)
+    stdscr.hline(13, 72, curses.ACS_HLINE, 7)
+    stdscr.addch(13, 79, curses.ACS_RTEE)
+    stdscr.addstr(13, 72, "CANADA")
     stdscr.addstr(14, 72, "AB", workedSection("AB"))
     stdscr.addstr(15, 72, "BC", workedSection("BC"))
     stdscr.addstr(16, 72, "GH", workedSection("GH"))
@@ -1812,17 +1833,17 @@ def statusline():
             # logging.debug("statusline: %s", err)
 
     stdscr.addstr(23, 1, "Band:        Mode:")
-    stdscr.addstr(23, 7, f"  {band}  ", curses.A_REVERSE)
+    stdscr.addstr(23, 7, f"  {band}  ", highlightBonus(True))
     if cw is not None:
         if cw.servertype == 1 and mode == "CW":
-            stdscr.addstr(23, 20, f"{mode} {cw.speed} ", curses.A_REVERSE)
+            stdscr.addstr(23, 20, f"{mode} {cw.speed} ", highlightBonus(True))
         else:
-            stdscr.addstr(23, 20, f"  {mode}  ", curses.A_REVERSE)
+            stdscr.addstr(23, 20, f"  {mode}  ", highlightBonus(True))
     else:
-        stdscr.addstr(23, 20, f"  {mode}  ", curses.A_REVERSE)
+        stdscr.addstr(23, 20, f"  {mode}  ", highlightBonus(True))
     stdscr.addstr(23, 27, "                            ")
 
-    server_health_indicator = curses.A_REVERSE
+    server_health_indicator = highlightBonus(True)
 
     if groupcall and connect_to_server:
         showcall = groupcall
@@ -2026,6 +2047,7 @@ def processcommand(cmd):
     if cmd == "C" and connect_to_server:  # Chat
         chat_input()
         return
+    displayHelp()
     curses.flash()
     curses.beep()
 

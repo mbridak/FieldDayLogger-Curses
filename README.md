@@ -28,7 +28,7 @@ fdcurses
 
 # Recent changes
 
-- [23-2-6] Removed import of tkinter, replaced with pyperclip. Safer access to dict strings in settings.
+- [23-2-6] Removed import of tkinter, replaced with pyperclip. Safer access to dict strings in settings. Removed inverse video characters, hard on the eyes.
 - [23-2-5] Fixed crash when too many SCP matches happen.
 - [23-2-5] Safer dict key access.
 - [23-2-4] Repackaged for PyPi. Updated RAC sections.

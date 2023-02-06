@@ -4,7 +4,7 @@
 import curses
 from curses.ascii import isalnum, isprint
 import logging
-import tkinter
+import pyperclip
 
 
 class EditTextField:
@@ -24,16 +24,6 @@ class EditTextField:
         self.allow_lowercase = False
         self.allow_spaces = False
         self.is_URL = False
-
-    @staticmethod
-    def get_clipboard():
-        """copy the clipboard"""
-        bloat = tkinter.Tk()
-        clipboard = bloat.clipboard_get()
-        bloat.withdraw()
-        bloat.update()
-        bloat.destroy()
-        return clipboard
 
     def getchar(self, character) -> None:
         """Process character"""
@@ -57,7 +47,7 @@ class EditTextField:
                 pass
         else:
             if curses.keyname(character) == b"^V":
-                clip = self.get_clipboard()
+                clip = pyperclip.paste()
                 if clip and len(self.textfield) < self.max_length:
                     self.textfield = (
                         f"{self.textfield[:self.cursor_position]}"

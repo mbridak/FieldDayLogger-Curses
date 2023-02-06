@@ -1584,7 +1584,7 @@ def displaySCP(matches):
             if (33 - wx) < len(str(x)):
                 infowindow.move(wy + 1, 0)
             infowindow.addstr(f"{x} ")
-    except:
+    except curses.error:
         ...
 
     stdscr.refresh()

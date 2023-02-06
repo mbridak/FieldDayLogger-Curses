@@ -8,10 +8,6 @@ The logger is written in Python 3, and uses the curses lib. It will work with Li
 
 The log is stored in an sqlite3 database file 'FieldDay.db'. If you need to wipe everything and start clean, just delete this file. The screen size expected by the program is an 80 x 24 character terminal.
 
-You may have to install Tkinter. It's used for clipboard access.
-
-`sudo apt install python3-tk`
-
 ## Installation and running
 
 ```bash
@@ -32,6 +28,7 @@ fdcurses
 
 # Recent changes
 
+- [23-2-6] Removed import of tkinter, replaced with pyperclip. 
 - [23-2-5] Fixed crash when too many SCP matches happen.
 - [23-2-5] Safer dict key access.
 - [23-2-4] Repackaged for PyPi. Updated RAC sections.

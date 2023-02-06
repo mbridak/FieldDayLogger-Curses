@@ -6,6 +6,8 @@ from curses.ascii import isalnum, isprint
 import logging
 import pyperclip
 
+pyperclip.copy("")
+
 
 class EditTextField:
     """basic text field edit"""

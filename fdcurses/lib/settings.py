@@ -11,6 +11,11 @@ except ModuleNotFoundError:
     from lib.edittextfield import EditTextField
 
 
+def dictstring(the_object: dict, the_key: str) -> str:
+    """Return safe dict string"""
+    return str(the_object.get(the_key)) if the_object.get(the_key) else ""
+
+
 class SettingsScreen:
     """Yup it's the settings screen"""
 
@@ -59,13 +64,13 @@ class SettingsScreen:
         self.screen.box()
         self._title()
         self.mycallsign = EditTextField(self.screen, 2, 11, 14, curses.A_UNDERLINE)
-        self.mycallsign.set_text(preference.get("mycall"))
+        self.mycallsign.set_text(dictstring(preference, "mycall"))
         self.myclass = EditTextField(self.screen, 2, 36, 3, curses.A_UNDERLINE)
-        self.myclass.set_text(preference.get("myclass"))
+        self.myclass.set_text(dictstring(preference, "myclass"))
         self.mysection = EditTextField(self.screen, 2, 52, 3, curses.A_UNDERLINE)
-        self.mysection.set_text(preference.get("mysection"))
+        self.mysection.set_text(dictstring(preference, "mysection"))
         self.power = EditTextField(self.screen, 2, 70, 3, curses.A_UNDERLINE)
-        self.power.set_text(preference.get("power"))
+        self.power.set_text(dictstring(preference, "power"))
         self.usehamdb = EditTextField(self.screen, 5, 14, 1, curses.A_UNDERLINE)
         self.usehamdb.set_bool(True)
         self.usehamdb.set_state(bool(preference.get("usehamdb")))
@@ -77,10 +82,10 @@ class SettingsScreen:
         self.usehamqth.set_state(bool(preference.get("usehamqth")))
         self.lookupusername = EditTextField(self.screen, 6, 12, 15, curses.A_UNDERLINE)
         self.lookupusername.lowercase(True)
-        self.lookupusername.set_text(preference.get("lookupusername"))
+        self.lookupusername.set_text(dictstring(preference, "lookupusername"))
         self.lookuppassword = EditTextField(self.screen, 6, 38, 20, curses.A_UNDERLINE)
         self.lookuppassword.lowercase(True)
-        self.lookuppassword.set_text(preference.get("lookuppassword"))
+        self.lookuppassword.set_text(dictstring(preference, "lookuppassword"))
         self.userigctld = EditTextField(self.screen, 9, 16, 1, curses.A_UNDERLINE)
         self.userigctld.set_bool(True)
         self.userigctld.set_state(bool(preference.get("userigctld")))
@@ -89,7 +94,7 @@ class SettingsScreen:
         self.useflrig.set_state(bool(preference.get("useflrig")))
         self.CAT_ip = EditTextField(self.screen, 10, 19, 20, curses.A_UNDERLINE)
         self.CAT_ip.lowercase(True)
-        self.CAT_ip.set_text(preference.get("CAT_ip"))
+        self.CAT_ip.set_text(dictstring(preference, "CAT_ip"))
         self.CAT_port = EditTextField(self.screen, 10, 50, 5, curses.A_UNDERLINE)
         self.CAT_port.set_text(str(preference.get("CAT_port")))
         self.cloudlog = EditTextField(self.screen, 13, 17, 1, curses.A_UNDERLINE)
@@ -97,16 +102,16 @@ class SettingsScreen:
         self.cloudlog.set_state(bool(preference.get("cloudlog")))
         self.cloudlogapi = EditTextField(self.screen, 14, 16, 25, curses.A_UNDERLINE)
         self.cloudlogapi.lowercase(True)
-        self.cloudlogapi.set_text(preference.get("cloudlogapi"))
+        self.cloudlogapi.set_text(dictstring(preference, "cloudlogapi"))
         self.cloudlogurl = EditTextField(self.screen, 15, 16, 58, curses.A_UNDERLINE)
         self.cloudlogurl.lowercase(True)
         self.cloudlogurl.set_url(True)
-        self.cloudlogurl.set_text(preference.get("cloudlogurl"))
+        self.cloudlogurl.set_text(dictstring(preference, "cloudlogurl"))
         self.cloudlogstationid = EditTextField(
             self.screen, 16, 23, 20, curses.A_UNDERLINE
         )
         self.cloudlogstationid.lowercase(True)
-        self.cloudlogstationid.set_text(preference.get("cloudlogstationid"))
+        self.cloudlogstationid.set_text(dictstring(preference, "cloudlogstationid"))
         self.altpower = EditTextField(self.screen, 19, 64, 1, curses.A_UNDERLINE)
         self.altpower.set_bool(True)
         self.altpower.set_state(bool(preference.get("altpower")))
@@ -119,7 +124,7 @@ class SettingsScreen:
         self.pywinkeyer.set_state(bool(cwd == 2))
         self.CW_IP = EditTextField(self.screen, 20, 11, 20, curses.A_UNDERLINE)
         self.CW_IP.lowercase(True)
-        self.CW_IP.set_text(preference.get("CW_IP"))
+        self.CW_IP.set_text(dictstring(preference, "CW_IP"))
         self.CW_port = EditTextField(self.screen, 20, 41, 5, curses.A_UNDERLINE)
         self.CW_port.set_text(str(preference.get("CW_port")))
         # self.notathome = EditTextField(self.screen, 19, 50, 1, curses.A_UNDERLINE)

@@ -54,14 +54,14 @@ class GroupSettingsScreen:
 
         self.multicast_group = EditTextField(self.screen, 6, 19, 16, curses.A_UNDERLINE)
         self.multicast_group.lowercase(True)
-        self.multicast_group.set_text(preference.get("multicast_group"))
+        self.multicast_group.set_text(preference.get("multicast_group", ""))
 
         self.multicast_port = EditTextField(self.screen, 6, 56, 5, curses.A_UNDERLINE)
-        self.multicast_port.set_text(str(preference.get("multicast_port")))
+        self.multicast_port.set_text(str(preference.get("multicast_port", "")))
 
         self.interface_ip = EditTextField(self.screen, 7, 16, 16, curses.A_UNDERLINE)
         self.interface_ip.lowercase(True)
-        self.interface_ip.set_text(preference.get("interface_ip"))
+        self.interface_ip.set_text(preference.get("interface_ip", ""))
 
         self.input_fields = [
             self.useserver,

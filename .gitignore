@@ -13,3 +13,5 @@ debug
 *.adi
 build/*
 publish.sh
+cwmacros_fd.txt
+fd_preferences.json

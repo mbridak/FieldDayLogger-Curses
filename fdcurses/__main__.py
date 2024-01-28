@@ -21,6 +21,7 @@ Contact_______: michael.bridak@gmail.com
 # pylint: disable=too-many-lines
 # pylint: disable=global-statement
 
+import datetime as dt
 import curses
 import logging
 import os
@@ -814,7 +815,7 @@ def read_cw_macros():
     if not Path("./cwmacros_fd.txt").exists():
         logging.info("copying default macro file.")
         try:
-            path = os.path.dirname(pkgutil.get_loader("fdcurses").get_filename())
+            path = os.path.dirname(__loader__.get_filename())
             logging.info("the path : %s", path)
             copyfile(path + "/data/cwmacros_fd.txt", "./cwmacros_fd.txt")
         except AttributeError:
@@ -903,7 +904,6 @@ def readpreferences():
     cw = None
     look_up = None
     try:
-
         if preference.get("useflrig"):
             cat_control = CAT(
                 "flrig", preference.get("CAT_ip"), preference.get("CAT_port")
@@ -1823,7 +1823,7 @@ def statusline():
     y, x = stdscr.getyx()
     stdscr.addstr(22, 1, f"v{__version__}")
     now = datetime.now().isoformat(" ")[5:19].replace("-", "/")
-    utcnow = datetime.utcnow().isoformat(" ")[5:19].replace("-", "/")
+    utcnow = datetime.now(dt.UTC).isoformat(" ")[5:19].replace("-", "/")
     try:
         stdscr.addstr(22, 59, f"Local: {now}")
         stdscr.addstr(23, 61, f"UTC: {utcnow}")
@@ -2489,7 +2489,7 @@ def main(s):  # pylint: disable=unused-argument
 
 def run():
     """main entry point"""
-    PATH = os.path.dirname(pkgutil.get_loader("fdcurses").get_filename())
+    PATH = os.path.dirname(__loader__.get_filename())
     os.system(
         "xdg-icon-resource install --size 32 --context apps --mode user "
         f"{PATH}/data/k6gte.fdcurses-32.png k6gte-fdcurses"

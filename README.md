@@ -28,6 +28,7 @@ fdcurses
 
 # Recent changes
 
+- [24.1.27] removed some datetime.utcnow() and pkgutil.getloader() deprecations.
 - [23-2-6] Removed import of tkinter, replaced with pyperclip. Safer access to dict strings in settings. Removed inverse video characters, hard on the eyes.
 - [23-2-5] Fixed crash when too many SCP matches happen.
 - [23-2-5] Safer dict key access.
@@ -146,7 +147,7 @@ The command '.L' will as far as I can tell generate a Cabrillo log file which yo
 
 I've used cr/lf line endings because that's what the log checker expects. So if you edit the file you might want to run the file through 'unix2dos' to make sure the checker does not choke.
 
-I've added an ADIF export of sorts. There's a logistical problem with data modes. Field Day does not care what the data mode is, it's just recorded as a generic data contact. So I didn't bother to capture that in the database. So since most of america and maybe canada will use FT8 because it's the new hotness, I just made the data contacts map over to FT8 in ADIF. Sorry. 
+I've added an ADIF export of sorts. There's a logistical problem with data modes. Field Day does not care what the data mode is, it's just recorded as a generic data contact. So I didn't bother to capture that in the database. So since most of america and maybe canada will use FT8 because it's the new hotness, I just made the data contacts map over to FT8 in ADIF. Sorry.
 
 # The Aggregation Server
 

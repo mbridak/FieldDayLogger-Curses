@@ -1362,7 +1362,7 @@ def postcloudlog():
     else:
         rst = "59"
     loggeddate = the_datetime[:10]
-    loggedtime = the_datetime[11:13] + datetime[14:16]
+    loggedtime = the_datetime[11:13] + the_datetime[14:16]
     adifq = (
         f"<QSO_DATE:{len(''.join(loggeddate.split('-')))}:d>"
         f"{''.join(loggeddate.split('-'))}"
@@ -1823,7 +1823,7 @@ def statusline():
     y, x = stdscr.getyx()
     stdscr.addstr(22, 1, f"v{__version__}")
     now = datetime.now().isoformat(" ")[5:19].replace("-", "/")
-    utcnow = datetime.now(dt.UTC).isoformat(" ")[5:19].replace("-", "/")
+    utcnow = datetime.now(dt.timezone.utc).isoformat(" ")[5:19].replace("-", "/")
     try:
         stdscr.addstr(22, 59, f"Local: {now}")
         stdscr.addstr(23, 61, f"UTC: {utcnow}")
@@ -2350,9 +2350,9 @@ def editQSO(q):
     qso_edit_field_1.set_text(log.get("callsign"))
     qso_edit_field_2.set_text(log.get("class"))
     qso_edit_field_3.set_text(log.get("section"))
-    dt = log.get("date_time").split()
-    qso_edit_field_4.set_text(dt[0])
-    qso_edit_field_5.set_text(dt[1])
+    _dt = log.get("date_time").split()
+    qso_edit_field_4.set_text(_dt[0])
+    qso_edit_field_5.set_text(_dt[1])
     qso_edit_field_6.set_text(log.get("band"))
     qso_edit_field_7.set_text(log.get("mode"))
     qso_edit_field_8.set_text(str(log.get("power")))

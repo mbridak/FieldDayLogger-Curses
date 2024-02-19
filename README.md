@@ -28,7 +28,8 @@ fdcurses
 
 # Recent changes
 
-- [24.1.27] removed some datetime.utcnow() and pkgutil.getloader() deprecations.
+- [24.2.19] Fixed deprecation changes to work on Python 3.9+
+- [24.1.27] Removed some datetime.utcnow() and pkgutil.getloader() deprecations.
 - [23-2-6] Removed import of tkinter, replaced with pyperclip. Safer access to dict strings in settings. Removed inverse video characters, hard on the eyes.
 - [23-2-5] Fixed crash when too many SCP matches happen.
 - [23-2-5] Safer dict key access.

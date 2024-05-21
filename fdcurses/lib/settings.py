@@ -1,4 +1,5 @@
 """SettingsScreen class"""
+
 # pylint: disable=invalid-name
 # pylint: disable=too-many-function-args
 
@@ -45,7 +46,7 @@ class SettingsScreen:
         " Cloudlog StationID:",
         "",
         "                     CW                               BONUSES",
-        "      cwdaemon: [ ]  PyWinkeyer [ ]                Alt-Power: [ ]",
+        "      cwdaemon: [ ]  PyWinkeyer [ ]  CAT [ ]       Alt-Power: [ ]",
         " CW Host:                      CW Port:",
     ]
 
@@ -114,9 +115,12 @@ class SettingsScreen:
         self.cwdaemon.set_bool(True)
         self.pywinkeyer = EditTextField(self.screen, 19, 34, 1, curses.A_UNDERLINE)
         self.pywinkeyer.set_bool(True)
+        self.cat4cw = EditTextField(self.screen, 19, 43, 1, curses.A_UNDERLINE)
+        self.cat4cw.set_bool(True)
         cwd = preference.get("cwtype")
         self.cwdaemon.set_state(bool(cwd == 1))
         self.pywinkeyer.set_state(bool(cwd == 2))
+        self.cat4cw.set_state(bool(cwd == 3))
         self.CW_IP = EditTextField(self.screen, 20, 11, 20, curses.A_UNDERLINE)
         self.CW_IP.lowercase(True)
         self.CW_IP.set_text(preference.get("CW_IP", "127.0.0.1"))
@@ -151,6 +155,7 @@ class SettingsScreen:
             self.cloudlogstationid,
             self.cwdaemon,
             self.pywinkeyer,
+            self.cat4cw,
             self.altpower,
             self.CW_IP,
             self.CW_port,
@@ -224,6 +229,8 @@ class SettingsScreen:
                     self.preference["cwtype"] = 1
                 if self.pywinkeyer.get_state() is True:
                     self.preference["cwtype"] = 2
+                if self.cat4cw.get_state() is True:
+                    self.preference["cwtype"] = 3
                 self.screen.erase()
                 return self.preference
             self.input_fields[self.input_field_focus].getchar(c)

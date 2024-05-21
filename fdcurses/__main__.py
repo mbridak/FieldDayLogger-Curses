@@ -843,29 +843,65 @@ def check_function_keys(key):
     """Sends a CW macro if a function key was pressed."""
     if cw:
         if key == curses.KEY_F1 and "F1" in fkeys:
-            cw.sendcw(process_macro(fkeys["F1"][1]))
+            if cw.servertype == 3:
+                cat_control.sendcw(process_macro(fkeys["F1"][1]))
+            else:
+                cw.sendcw(process_macro(fkeys["F1"][1]))
         elif key == curses.KEY_F2 and "F2" in fkeys:
-            cw.sendcw(process_macro(fkeys["F2"][1]))
+            if cw.servertype == 3:
+                cat_control.sendcw(process_macro(fkeys["F2"][1]))
+            else:
+                cw.sendcw(process_macro(fkeys["F2"][1]))
         elif key == curses.KEY_F3 and "F3" in fkeys:
-            cw.sendcw(process_macro(fkeys["F3"][1]))
+            if cw.servertype == 3:
+                cat_control.sendcw(process_macro(fkeys["F3"][1]))
+            else:
+                cw.sendcw(process_macro(fkeys["F3"][1]))
         elif key == curses.KEY_F4 and "F4" in fkeys:
-            cw.sendcw(process_macro(fkeys["F4"][1]))
+            if cw.servertype == 3:
+                cat_control.sendcw(process_macro(fkeys["F4"][1]))
+            else:
+                cw.sendcw(process_macro(fkeys["F4"][1]))
         elif key == curses.KEY_F5 and "F5" in fkeys:
-            cw.sendcw(process_macro(fkeys["F5"][1]))
+            if cw.servertype == 3:
+                cat_control.sendcw(process_macro(fkeys["F5"][1]))
+            else:
+                cw.sendcw(process_macro(fkeys["F5"][1]))
         elif key == curses.KEY_F6 and "F6" in fkeys:
-            cw.sendcw(process_macro(fkeys["F6"][1]))
+            if cw.servertype == 3:
+                cat_control.sendcw(process_macro(fkeys["F6"][1]))
+            else:
+                cw.sendcw(process_macro(fkeys["F6"][1]))
         elif key == curses.KEY_F7 and "F7" in fkeys:
-            cw.sendcw(process_macro(fkeys["F7"][1]))
+            if cw.servertype == 3:
+                cat_control.sendcw(process_macro(fkeys["F7"][1]))
+            else:
+                cw.sendcw(process_macro(fkeys["F7"][1]))
         elif key == curses.KEY_F8 and "F8" in fkeys:
-            cw.sendcw(process_macro(fkeys["F8"][1]))
+            if cw.servertype == 3:
+                cat_control.sendcw(process_macro(fkeys["F8"][1]))
+            else:
+                cw.sendcw(process_macro(fkeys["F8"][1]))
         elif key == curses.KEY_F9 and "F9" in fkeys:
-            cw.sendcw(process_macro(fkeys["F9"][1]))
+            if cw.servertype == 3:
+                cat_control.sendcw(process_macro(fkeys["F9"][1]))
+            else:
+                cw.sendcw(process_macro(fkeys["F9"][1]))
         elif key == curses.KEY_F10 and "F10" in fkeys:
-            cw.sendcw(process_macro(fkeys["F10"][1]))
+            if cw.servertype == 3:
+                cat_control.sendcw(process_macro(fkeys["F10"][1]))
+            else:
+                cw.sendcw(process_macro(fkeys["F10"][1]))
         elif key == curses.KEY_F11 and "F11" in fkeys:
-            cw.sendcw(process_macro(fkeys["F11"][1]))
+            if cw.servertype == 3:
+                cat_control.sendcw(process_macro(fkeys["F11"][1]))
+            else:
+                cw.sendcw(process_macro(fkeys["F11"][1]))
         elif key == curses.KEY_F12 and "F12" in fkeys:
-            cw.sendcw(process_macro(fkeys["F12"][1]))
+            if cw.servertype == 3:
+                cat_control.sendcw(process_macro(fkeys["F12"][1]))
+            else:
+                cw.sendcw(process_macro(fkeys["F12"][1]))
         elif key == 43 and cw.servertype == 1:
             cw.speed += 1
             cw.sendcw(f"\x1b2{cw.speed}")

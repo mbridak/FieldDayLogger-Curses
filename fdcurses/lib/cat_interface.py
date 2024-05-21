@@ -66,7 +66,7 @@ class CAT:
 
     def sendcw(self, texttosend):
         """..."""
-        self.logger.debug(f"{texttosend=} {self.interface=}")
+        logging.debug(f"{texttosend=} {self.interface=}")
         if self.interface == "flrig":
             ...
             return
@@ -83,7 +83,7 @@ class CAT:
                 return True
             except socket.error as exception:
                 self.online = False
-                self.logger.debug("setvfo_rigctld: %s", f"{exception}")
+                logging.debug("setvfo_rigctld: %s", f"{exception}")
                 self.rigctrlsocket = None
                 return False
         self.__initialize_rigctrld()

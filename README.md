@@ -28,6 +28,7 @@ fdcurses
 
 # Recent changes
 
+- [24.5.21] Add sending CW macros via CAT(rigctld).
 - [24.2.19] Fixed deprecation changes to work on Python 3.9+
 - [24.1.27] Removed some datetime.utcnow() and pkgutil.getloader() deprecations.
 - [23-2-6] Removed import of tkinter, replaced with pyperclip. Safer access to dict strings in settings. Removed inverse video characters, hard on the eyes.
@@ -95,6 +96,8 @@ That can be suppressed in the terminals preferences general section.
 
 If you're using cwdaemon you can change the cw sending speed by pressing + or -.
 You can abort CW output by pressing `ESC`.
+
+If you do not have a K1EL winkeyer or work-a-like, and you are using rigctld for CAT control. You can select CAT to send CW as long as your radio supports it.
 
 #### Callsign lookups
 

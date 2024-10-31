@@ -139,7 +139,10 @@ preference = {
 # incase preference becomes corrupt make a backup.
 reference_preference = preference.copy()
 
-ft8_watcher = WsjtxListener()
+try:
+    ft8_watcher = WsjtxListener()
+except OSError:
+    ft8_watcher = None
 
 contactlookup = {
     "call": "",
@@ -2432,7 +2435,7 @@ def editQSO(q):
 
 def get_ft8_qso():
     """Monitor FT8 contacts"""
-    while True:
+    while ft8_watcher:
         ft8qso = ft8_watcher.get_udp()
         if ft8qso:
             contact = (
